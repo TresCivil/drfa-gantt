@@ -183,8 +183,6 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
 #emptyState{display:none;flex-direction:column;align-items:center;justify-content:center;height:180px;color:var(--gray-400);gap:8px}
 #emptyState p{font-size:13px}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -591,9 +589,15 @@ function render(){
 
   allGroupRows.forEach(g => {
     const grpFilter = document.getElementById('fGroup').value;
-    if(grpFilter && g.id !== grpFilter) return; /* respect Category dropdown */
-    const children = childRows.filter(t=>(t.parent||'').trim()===g.id);
-    if(children.length === 0) return; /* hide group if no children pass filters */
+    if(grpFilter && g.id !== grpFilter) return;
+    const children = childRows
+      .filter(t=>(t.parent||'').trim()===g.id)
+      .sort((a,b)=>{
+        const da=a.start?new Date(a.start):new Date('9999-12-31');
+        const db=b.start?new Date(b.start):new Date('9999-12-31');
+        return da-db;
+      });
+    if(children.length === 0) return;
     groupFirst.push(g);
     children.forEach(t=>groupFirst.push(t));
   });
@@ -1237,233 +1241,373 @@ window.addEventListener('message',e=>{
 });
 
 /* ── PDF Export via print ── */
-async function exportPDF(){
+/* ── Pure-JS PDF export — zero external dependencies ── */
+function exportPDF(){
   const btn=document.getElementById('pdfBtn');
   const origHTML=btn.innerHTML;
   btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generating…';
   btn.style.pointerEvents='none'; btn.style.opacity='0.7';
 
-  try {
-    const {jsPDF}=window.jspdf;
-    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a3'});
-    const PW=pdf.internal.pageSize.getWidth();   /* 420mm */
-    const PH=pdf.internal.pageSize.getHeight();  /* 297mm */
-    const MAR=8; /* margin mm */
+  /* Constants accessible by img.onload closure */
+  const PW=1190, PH=842;
+  const MAR=24;
+  const COL_W=[72,90,38,72,54,48,52,52,40,30,42];
+  const LEFT_W=COL_W.reduce((a,b)=>a+b,0);
+  const CHART_X=MAR+LEFT_W+6;
+  const CHART_W=PW-CHART_X-MAR;
+  const ROW_H=13;
+  const HEAD_H=22;
+  const TABLE_Y=MAR+24;
+  const SVG_W=1190, SVG_H=842;
 
-    /* ── Colours ── */
-    const GROUP_COLORS={
-      IRW:{bar:[45,78,138], bg:[238,242,250], text:[29,52,107]},
-      EW: {bar:[107,63,160],bg:[240,236,251], text:[74,44,120]},
-      EPAR:{bar:[46,122,74], bg:[235,245,238], text:[27,90,50]},
-    };
-    function gc(groupKey){
-      const k=(groupKey||'').toUpperCase();
-      for(const g of Object.keys(GROUP_COLORS)) if(k.includes(g)) return GROUP_COLORS[g];
-      return{bar:[80,80,80],bg:[245,245,245],text:[40,40,40]};
-    }
+  function gcPDF(gk){
+    const k=(gk||'').toUpperCase();
+    if(k.includes('IRW')) return{bar:[45,78,138],bg:[238,242,250],text:[29,52,107]};
+    if(k.includes('EW'))  return{bar:[107,63,160],bg:[240,236,251],text:[74,44,120]};
+    if(k.includes('EPAR'))return{bar:[46,122,74], bg:[235,245,238],text:[27,90,50]};
+    return{bar:[80,80,80],bg:[245,245,245],text:[40,40,40]};
+  }
+  function hexPDF(arr){return'#'+arr.map(v=>v.toString(16).padStart(2,'0')).join('');}
 
-    /* ── Get visible filtered tasks ── */
+  try{
+
+    /* ── Visible rows ── */
     const filtered=getFiltered();
-    const groupFirst=[];
-    const childRows=filtered.filter(t=>!t.group);
+    const rows=[];
     tasks.filter(t=>t.group).forEach(g=>{
       const grpFilter=document.getElementById('fGroup').value;
       if(grpFilter&&g.id!==grpFilter)return;
-      groupFirst.push(g);
-      childRows.filter(t=>t.groupKey===g.id&&!collapsed[g.id]).forEach(t=>groupFirst.push(t));
+      rows.push(g);
+      if(!collapsed[g.id]) filtered.filter(t=>t.groupKey===g.id&&!t.group).forEach(t=>rows.push(t));
     });
-    const rows=groupFirst.filter(t=>t.start||t.group);
 
-    /* ── Timeline range ── */
+    /* ── Timeline ── */
     const range=getRange();
     const tw=totalW(range);
-    const CHART_X=MAR; /* chart starts at left margin after left panel */
+    function chartX(iso){ return CHART_X+(xFor(iso,range.start)/tw)*CHART_W; }
+    const COLS=['Recovery No.','Road/Assets','PM','Constr. Team','Dep.','Est. Cost','Start','End','Dur','Mile','Prog'];
 
-    /* ── LEFT PANEL: autoTable ── */
-    const colWidths=[18,30,12,22,18,16,16,16,12,10,14]; /* mm each */
-    const leftPanelW=colWidths.reduce((a,b)=>a+b,0);
-    const CHART_START_X=MAR+leftPanelW+3;
-    const CHART_W=PW-CHART_START_X-MAR;
+    /* ── Dead code removed ── */
+    const ns='http://www.w3.org/2000/svg';
+    const svg=document.createElementNS(ns,'svg');
+    svg.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    svg.setAttribute('width',SVG_W);
+    svg.setAttribute('height',SVG_H);
+    svg.setAttribute('viewBox',`0 0 ${SVG_W} ${SVG_H}`);
 
-    /* Header row */
-    const HEAD=['Recovery No.','Road / Assets','PM','Construction Team','Dependency','Est. Cost','Start','End','Duration','Mile','Progress'];
+    /* White background */
+    const bg=document.createElementNS(ns,'rect');
+    bg.setAttribute('width',SVG_W);bg.setAttribute('height',SVG_H);bg.setAttribute('fill','white');
+    svg.appendChild(bg);
 
-    const tableBody=rows.map(t=>{
-      if(t.group) return HEAD.map((_,i)=>i===0?t.id:i===6?fmtDate(t.start):i===7?fmtDate(t.end):i===10?t.progress+'%':'');
-      return[
-        t.id,
-        (t.road||'').substring(0,22),
+    function svgEl(tag,attrs,text){
+      const el=document.createElementNS(ns,tag);
+      Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+      if(text!=null) el.textContent=text;
+      svg.appendChild(el);
+      return el;
+    }
+    function rgb(arr){return`rgb(${arr[0]},${arr[1]},${arr[2]})`}
+    function hex(arr){return'#'+arr.map(v=>v.toString(16).padStart(2,'0')).join('')}
+
+    /* Title */
+    svgEl('text',{x:MAR,y:MAR+10,'font-family':'Arial,sans-serif','font-size':'11','font-weight':'bold',fill:'#1a1a1a'},'DRFA Gantt Chart — '+document.getElementById('connLabel').textContent);
+    svgEl('text',{x:MAR,y:MAR+20,'font-family':'Arial,sans-serif','font-size':'8',fill:'#666'},'Exported '+new Date().toLocaleDateString('en-AU')+' | Scale: '+scale);
+
+    /* ── Table header ── */
+    svgEl('rect',{x:MAR,y:TABLE_Y,width:LEFT_W,height:HEAD_H/2,fill:'#323232'});
+    let cx2=MAR;
+    COLS.forEach((col,i)=>{
+      svgEl('text',{x:cx2+2,y:TABLE_Y+8,'font-family':'Arial,sans-serif','font-size':'6','font-weight':'bold',fill:'white'},col);
+      cx2+=COL_W[i];
+    });
+
+    /* Chart header background */
+    svgEl('rect',{x:CHART_X,y:TABLE_Y,width:CHART_W,height:HEAD_H/2,fill:'#2d2d2d'});
+
+    /* Month labels on chart header */
+    let curM=new Date(range.start);
+    while(curM<=range.end){
+      const mx=chartX(curM.toISOString().split('T')[0]);
+      if(mx>=CHART_X&&mx<=CHART_X+CHART_W){
+        svgEl('text',{x:mx+2,y:TABLE_Y+8,'font-family':'Arial,sans-serif','font-size':'6',fill:'white'},
+          curM.toLocaleDateString('en-AU',{month:'short',year:'2-digit'}));
+        svgEl('line',{x1:mx,y1:TABLE_Y,x2:mx,y2:TABLE_Y+HEAD_H/2,stroke:'rgba(255,255,255,0.3)','stroke-width':'0.5'});
+      }
+      curM=new Date(curM.getFullYear(),curM.getMonth()+1,1);
+    }
+
+    /* ── Rows ── */
+    rows.forEach((t,i)=>{
+      const ry=TABLE_Y+HEAD_H/2+i*ROW_H;
+      const c=gcPDF(t.groupKey||t.id);
+
+      /* Row bg */
+      const rowBg=t.group?hexPDF(c.bg):(i%2===0?'#ffffff':'#f9f9f9');
+      svgEl('rect',{x:MAR,y:ry,width:LEFT_W+CHART_W+6,height:ROW_H,fill:rowBg});
+
+      /* Row border */
+      svgEl('line',{x1:MAR,y1:ry+ROW_H,x2:CHART_X+CHART_W,y2:ry+ROW_H,stroke:'#e0e0e0','stroke-width':'0.4'});
+
+      /* Left panel cells */
+      const vals=t.group?[
+        t.id,'','','','','',fmtDate(t.start),fmtDate(t.end),durLabel(t.start,t.end),'',t.progress+'%'
+      ]:[
+        t.id,(t.road||'').substring(0,16),
         (t.pm||'').split(' | ')[0]||'',
-        (t.pm||'').split(' | ')[1]||'',
-        (t.predecessor||'').substring(0,12)||'None',
+        ((t.pm||'').split(' | ')[1]||'').substring(0,12),
+        (t.predecessor||'None').substring(0,10),
         t.estimatedCost?'$'+Number(t.estimatedCost).toLocaleString():'',
-        fmtDate(t.start)||'',
-        fmtDate(t.end)||'',
+        fmtDate(t.start)||'',fmtDate(t.end)||'',
         durLabel(t.start,t.end),
         t.milestone?'Yes':'No',
         (t.progress||0)+'%',
       ];
-    });
 
-    pdf.autoTable({
-      startY:MAR+6,
-      margin:{left:MAR,right:PW-MAR-leftPanelW},
-      head:[HEAD],
-      body:tableBody,
-      styles:{fontSize:5.5,cellPadding:1.2,overflow:'ellipsize',valign:'middle',lineWidth:0.1},
-      headStyles:{fillColor:[50,50,50],textColor:255,fontSize:5.5,fontStyle:'bold',cellPadding:1.2},
-      columnStyles:Object.fromEntries(colWidths.map((w,i)=>([i,{cellWidth:w}]))),
-      didParseCell:(data)=>{
-        const rowIdx=data.row.index;
-        if(data.section==='body'&&rows[rowIdx]&&rows[rowIdx].group){
-          const c=gc(rows[rowIdx].id);
-          data.cell.styles.fillColor=c.bg;
-          data.cell.styles.textColor=c.text;
-          data.cell.styles.fontStyle='bold';
-        }
-      },
-      rowPageBreak:'avoid',
-    });
+      let cx3=MAR;
+      const textFill=t.group?hexPDF(c.text):'#222';
+      const fw=t.group?'bold':'normal';
+      vals.forEach((v,ci)=>{
+        svgEl('text',{x:cx3+2,y:ry+ROW_H-3,'font-family':'Arial,sans-serif','font-size':t.group?'6.5':'6','font-weight':fw,fill:textFill,'clip-path':`inset(0 0 0 0)`},String(v));
+        /* Column divider */
+        svgEl('line',{x1:cx3+COL_W[ci],y1:ry,x2:cx3+COL_W[ci],y2:ry+ROW_H,stroke:'#ddd','stroke-width':'0.3'});
+        cx3+=COL_W[ci];
+      });
 
-    /* ── GANTT BARS: drawn to the right of the table ── */
-    const ROW_H=4.5; /* mm per row */
-    const HEAD_H=7;  /* header band height mm */
-    const tableStartY=MAR+6;
-
-    /* Month/week header */
-    pdf.setFillColor(50,50,50);
-    pdf.rect(CHART_START_X, tableStartY, CHART_W, 4, 'F');
-    pdf.setTextColor(255,255,255);
-    pdf.setFontSize(5);
-
-    /* Draw month labels */
-    const months=[];
-    let cur=new Date(range.start);
-    while(cur<=range.end){
-      months.push(new Date(cur));
-      cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
-    }
-    months.forEach(m=>{
-      const x=CHART_START_X+(xFor(m.toISOString().split('T')[0],range.start)/tw)*CHART_W;
-      pdf.text(m.toLocaleDateString('en-AU',{month:'short',year:'2-digit'}),x+0.5,tableStartY+2.8);
-    });
-
-    /* Week tick labels */
-    pdf.setFillColor(60,60,60);
-    pdf.rect(CHART_START_X, tableStartY+4, CHART_W, 3, 'F');
-    pdf.setFontSize(4);
-    if(scale==='Weeks'){
-      let d=new Date(range.start);
-      let wn=1;
-      while(d<=range.end){
-        const x=CHART_START_X+(xFor(d.toISOString().split('T')[0],range.start)/tw)*CHART_W;
-        pdf.text('W'+wn,x+0.3,tableStartY+6.3);
-        d=new Date(d.getTime()+7*86400000);
-        wn=wn%4+1;
-      }
-    }
-
-    /* Today line */
-    const todayX=CHART_START_X+(xFor(TODAY.toISOString().split('T')[0],range.start)/tw)*CHART_W;
-    pdf.setDrawColor(220,50,50);
-    pdf.setLineWidth(0.3);
-    pdf.line(todayX,tableStartY,todayX,tableStartY+HEAD_H+rows.length*ROW_H);
-
-    /* Grid lines + bars */
-    rows.forEach((t,i)=>{
-      const y=tableStartY+HEAD_H+i*ROW_H;
-      const c=gc(t.groupKey||t.id);
-
-      /* Row background for groups */
-      if(t.group){
-        pdf.setFillColor(...c.bg);
-        pdf.rect(CHART_START_X,y,CHART_W,ROW_H,'F');
-      }
-
-      /* Alternating subtle grid */
-      pdf.setDrawColor(220,220,220);
-      pdf.setLineWidth(0.05);
-      pdf.line(CHART_START_X,y+ROW_H,CHART_START_X+CHART_W,y+ROW_H);
-
-      if(!t.start)return;
-
-      const xPct=xFor(t.start,range.start)/tw;
-      const xEndPct=xFor(t.end||t.start,range.start)/tw;
-      const bx=CHART_START_X+xPct*CHART_W;
-      const bw=Math.max((xEndPct-xPct)*CHART_W,1);
-      const by=y+0.7;
-      const bh=ROW_H-1.4;
+      /* Gantt bar */
+      if(!t.start) return;
+      const bx=chartX(t.start);
+      const bxEnd=chartX(t.end||t.start);
+      const bw=Math.max(bxEnd-bx,2);
+      const by=ry+2;
+      const bh=ROW_H-4;
 
       if(t.milestone){
-        /* Diamond */
-        pdf.setFillColor(...c.bar);
-        const cx=bx,cy=by+bh/2,sz=1.8;
-        pdf.triangle(cx,cy-sz,cx+sz,cy,cx,cy+sz,'F');
-        pdf.triangle(cx,cy-sz,cx-sz,cy,cx,cy+sz,'F');
+        const cx4=bx,cy4=by+bh/2,sz=4;
+        svgEl('polygon',{points:`${cx4},${cy4-sz} ${cx4+sz},${cy4} ${cx4},${cy4+sz} ${cx4-sz},${cy4}`,fill:hexPDF(c.bar)});
       } else if(t.group){
-        /* Group bar */
-        pdf.setFillColor(...c.bar.map(v=>Math.max(0,v-40)));
-        pdf.roundedRect(bx,by,bw,bh,0.5,0.5,'F');
-        /* Progress fill */
-        const pw2=bw*(t.progress/100);
-        pdf.setFillColor(...c.bar);
-        pdf.roundedRect(bx,by,pw2,bh,0.5,0.5,'F');
+        svgEl('rect',{x:bx,y:by,width:bw,height:bh,fill:hexPDF(c.bar.map(v=>Math.max(0,v-30))),rx:'1'});
+        const pw=bw*(t.progress/100);
+        if(pw>0) svgEl('rect',{x:bx,y:by,width:pw,height:bh,fill:hexPDF(c.bar),rx:'1'});
+        svgEl('text',{x:bx+bw+3,y:by+bh-1,'font-family':'Arial,sans-serif','font-size':'6','font-weight':'bold',fill:hexPDF(c.bar)},t.id+' '+t.progress+'%');
       } else {
-        /* Task bar background */
-        pdf.setFillColor(200,200,220);
-        pdf.roundedRect(bx,by,bw,bh,0.4,0.4,'F');
-        /* Progress fill */
-        const pw2=bw*(t.progress/100);
-        if(pw2>0){
-          pdf.setFillColor(...c.bar);
-          pdf.roundedRect(bx,by,pw2,bh,0.4,0.4,'F');
-        }
-        /* Progress label inside bar */
-        if(t.progress>0&&bw>6){
-          pdf.setTextColor(255,255,255);
-          pdf.setFontSize(3.5);
-          pdf.text(t.progress+'%',bx+1,by+bh-0.8);
-        }
+        svgEl('rect',{x:bx,y:by,width:bw,height:bh,fill:'#d0d0e8',rx:'1'});
+        const pw=bw*(t.progress/100);
+        if(pw>0) svgEl('rect',{x:bx,y:by,width:pw,height:bh,fill:hexPDF(c.bar),rx:'1'});
+        if(t.progress>0&&bw>16) svgEl('text',{x:bx+2,y:by+bh-2,'font-family':'Arial,sans-serif','font-size':'5.5',fill:'white'},t.progress+'%');
       }
     });
 
-    /* Vertical month grid lines */
-    months.forEach(m=>{
-      const x=CHART_START_X+(xFor(m.toISOString().split('T')[0],range.start)/tw)*CHART_W;
-      pdf.setDrawColor(200,200,200);
-      pdf.setLineWidth(0.1);
-      pdf.line(x,tableStartY,x,tableStartY+HEAD_H+rows.length*ROW_H);
-    });
+    /* Today line */
+    const todayX=chartX(TODAY.toISOString().split('T')[0]);
+    svgEl('line',{x1:todayX,y1:TABLE_Y,x2:todayX,y2:TABLE_Y+HEAD_H/2+rows.length*ROW_H,stroke:'#e53535','stroke-width':'1'});
+    svgEl('rect',{x:todayX-8,y:TABLE_Y-1,width:16,height:7,fill:'#e53535',rx:'2'});
+    svgEl('text',{x:todayX,y:TABLE_Y+4,'font-family':'Arial,sans-serif','font-size':'5','font-weight':'bold',fill:'white','text-anchor':'middle'},'TODAY');
 
-    /* Border around chart area */
-    pdf.setDrawColor(150,150,150);
-    pdf.setLineWidth(0.2);
-    pdf.rect(CHART_START_X,tableStartY,CHART_W,HEAD_H+rows.length*ROW_H);
+    /* Outer borders */
+    svgEl('rect',{x:MAR,y:TABLE_Y,width:LEFT_W,height:HEAD_H/2+rows.length*ROW_H,fill:'none',stroke:'#aaa','stroke-width':'0.5'});
+    svgEl('rect',{x:CHART_X,y:TABLE_Y,width:CHART_W,height:HEAD_H/2+rows.length*ROW_H,fill:'none',stroke:'#aaa','stroke-width':'0.5'});
 
-    /* Title */
-    pdf.setTextColor(30,30,30);
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica','bold');
-    pdf.text('Gantt Chart — DRFA Programme',MAR,MAR+3);
-    pdf.setFont('helvetica','normal');
-    pdf.setFontSize(7);
-    pdf.setTextColor(100,100,100);
-    const label=document.getElementById('connLabel').textContent||'';
-    pdf.text(label+' | Exported '+new Date().toLocaleDateString('en-AU'),MAR,MAR+7);
+    /* ── Serialise SVG → PDF via canvas ── */
+    const svgStr=new XMLSerializer().serializeToString(svg);
+    const svgBlob=new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
+    const url=URL.createObjectURL(svgBlob);
 
-    /* Save */
-    const dateStr=new Date().toISOString().split('T')[0];
-    pdf.save('GanttChart_'+dateStr+'.pdf');
+    const img=new Image();
+    img.onload=function(){
+      const canvas=document.createElement('canvas');
+      canvas.width=SVG_W*2; canvas.height=SVG_H*2; /* 2× for sharpness */
+      const ctx=canvas.getContext('2d');
+      ctx.scale(2,2);
+      ctx.fillStyle='white';
+      ctx.fillRect(0,0,SVG_W,SVG_H);
+      ctx.drawImage(img,0,0,SVG_W,SVG_H);
+      URL.revokeObjectURL(url);
+
+      /* Build minimal PDF manually */
+      const imgData=canvas.toDataURL('image/jpeg',0.92);
+      const b64=imgData.split(',')[1];
+      const imgBytes=atob(b64);
+      const imgLen=imgBytes.length;
+
+      /* PDF structure */
+      const parts=[];
+      function push(s){ parts.push(s); }
+
+      push('%PDF-1.4\n');
+      /* Object 1: catalog */
+      const o1off=parts.join('').length;
+      push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+      /* Object 2: pages */
+      const o2off=parts.join('').length;
+      push('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+      /* Object 3: page — A3 landscape */
+      const o3off=parts.join('').length;
+      push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Contents 4 0 R /Resources << /XObject << /Im1 5 0 R >> >> >>\nendobj\n`);
+      /* Object 4: content stream — draw image full page */
+      const stream=`q ${PW} 0 0 ${PH} 0 0 cm /Im1 Do Q\n`;
+      const o4off=parts.join('').length;
+      push(`4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}endstream\nendobj\n`);
+      /* Object 5: image XObject */
+      const o5off=parts.join('').length;
+      push(`5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgLen} >>\nstream\n`);
+      const header=parts.join('');
+      /* Build final binary */
+      const enc=new TextEncoder();
+      const headerBytes=enc.encode(header);
+      const footerStr=`\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f \n${String(o1off).padStart(10,'0')} 00000 n \n${String(o2off).padStart(10,'0')} 00000 n \n${String(o3off).padStart(10,'0')} 00000 n \n${String(o4off).padStart(10,'0')} 00000 n \n${String(o5off).padStart(10,'0')} 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${o5off+enc.encode(`5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgLen} >>\nstream\n`).length+imgLen+1}\n%%EOF`;
+      const footerBytes=enc.encode(footerStr);
+
+      /* Assemble */
+      const total=new Uint8Array(headerBytes.length+imgLen+footerBytes.length);
+      total.set(headerBytes,0);
+      for(let i=0;i<imgLen;i++) total[headerBytes.length+i]=imgBytes.charCodeAt(i);
+      total.set(footerBytes,headerBytes.length+imgLen);
+
+      const pdfBlob=new Blob([total],{type:'application/pdf'});
+      const pdfUrl=URL.createObjectURL(pdfBlob);
+      const a=document.createElement('a');
+      a.href=pdfUrl;
+      a.download='GanttChart_'+new Date().toISOString().split('T')[0]+'.pdf';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{URL.revokeObjectURL(pdfUrl);a.remove();},2000);
+
+      btn.innerHTML=origHTML;
+      btn.style.pointerEvents='';
+      btn.style.opacity='';
+    };
+    img.onerror=function(){
+      alert('PDF generation failed — SVG render error.');
+      btn.innerHTML=origHTML;btn.style.pointerEvents='';btn.style.opacity='';
+    };
+    img.src=url;
 
   } catch(err){
     console.error('PDF export error:',err);
     alert('PDF export failed: '+err.message);
-  } finally {
     btn.innerHTML=origHTML;
     btn.style.pointerEvents='';
     btn.style.opacity='';
   }
 }
+
+/* ── Sync row heights between left and right panes ── */
+function syncRowHeights(){
+  const leftRows=document.querySelectorAll('#leftTbody tr');
+  const rightRows=document.querySelectorAll('#ganttBody tr');
+  const len=Math.min(leftRows.length,rightRows.length);
+  /* Reset first so natural heights can be measured */
+  for(let i=0;i<len;i++){
+    leftRows[i].style.height='';
+    rightRows[i].style.height='';
+  }
+  /* Measure and apply the max of each pair */
+  for(let i=0;i<len;i++){
+    const h=Math.max(leftRows[i].getBoundingClientRect().height,
+                     rightRows[i].getBoundingClientRect().height,34);
+    leftRows[i].style.height=h+'px';
+    rightRows[i].style.height=h+'px';
+  }
+}
+
+/* ── Sync vertical scroll between left and right panes ── */
+(function(){
+  let syncing=false;
+  function syncV(src,dst){src.addEventListener('scroll',function(){if(syncing)return;syncing=true;dst.scrollTop=src.scrollTop;syncing=false;});}
+  const lb=document.getElementById('leftBody'),rb=document.getElementById('rightBody');
+  const lh=document.getElementById('leftHead'),rh=document.getElementById('rightHead');
+  if(lb&&rb){syncV(lb,rb);syncV(rb,lb);}
+  if(lb&&lh){lb.addEventListener('scroll',function(){lh.scrollLeft=lb.scrollLeft;});}
+  if(rb&&rh){rb.addEventListener('scroll',function(){rh.scrollLeft=rb.scrollLeft;});}
+})();
+
+/* ── Split peg drag logic ── */
+(function(){
+  const peg=document.getElementById('splitPeg');
+  const left=document.getElementById('leftPane');
+  const wrap=document.getElementById('ganttWrap');
+  if(!peg||!left||!wrap)return;
+  try{
+    const saved=localStorage.getItem('gantt_split_px');
+    if(saved){const wrapW=wrap.getBoundingClientRect().width||window.innerWidth;const s=parseFloat(saved);if(s>180&&s<wrapW-200){left.style.width=s+'px';left.style.maxWidth='none';}else{localStorage.removeItem('gantt_split_px');}}
+  }catch(e){}
+  let dragging=false,startX=0,startW=0;
+  peg.addEventListener('mousedown',e=>{dragging=true;startX=e.clientX;startW=left.getBoundingClientRect().width;peg.classList.add('dragging');document.body.style.cursor='col-resize';document.body.style.userSelect='none';e.preventDefault();});
+  document.addEventListener('mousemove',e=>{if(!dragging)return;const newW=Math.min(wrap.getBoundingClientRect().width-120,Math.max(180,startW+(e.clientX-startX)));left.style.width=newW+'px';left.style.maxWidth='none';});
+  document.addEventListener('mouseup',()=>{if(!dragging)return;dragging=false;peg.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';try{localStorage.setItem('gantt_split_px',left.getBoundingClientRect().width);}catch(e){}});
+})();
+
+/* init */
+document.getElementById('connLabel').textContent = 'Connecting…';
+populateDropdowns();
+render();
+postUp({type:'READY'});
+
+/* Load data from URL hash — Power Apps passes data this way */
+function loadFromHash(){
+  try{
+    const hash=window.location.hash;
+    if(!hash||hash.length<2)return false;
+    const decoded=decodeURIComponent(hash.substring(1));
+    const parsed=JSON.parse(decoded);
+    if(!Array.isArray(parsed)||!parsed.length)return false;
+
+    /* Build group rows from parsed tasks */
+    const seen={};const groupKeys=[];
+    parsed.forEach(t=>{const k=(t.groupKey||'').trim();if(k&&!seen[k]){seen[k]=true;groupKeys.push(k);}});
+    const groupRows=groupKeys.map(gk=>{
+      const ch=parsed.filter(t=>(t.groupKey||'').trim()===gk);
+      const starts=ch.filter(t=>t.start).map(t=>parseDate(t.start)).filter(Boolean);
+      const ends=ch.filter(t=>t.end).map(t=>parseDate(t.end)).filter(Boolean);
+      const progs=ch.map(t=>Number(t.progress));
+      const minStart=starts.length?new Date(Math.min(...starts)):new Date();
+      const maxEnd=ends.length?new Date(Math.max(...ends)):new Date();
+      const avgProg=progs.length?Math.round(progs.reduce((a,b)=>a+b,0)/progs.length):0;
+      return{id:gk,road:gk,group:true,groupKey:gk,start:minStart.toISOString().split('T')[0],
+        end:maxEnd.toISOString().split('T')[0],progress:avgProg,pm:gk,status:'open'};
+    });
+
+    tasks=[...groupRows,...parsed];
+    isConnected=true;
+    document.getElementById('statusDot').classList.add('connected');
+    document.getElementById('connLabel').textContent='Dataverse ('+parsed.length+' tasks)';
+    populateDropdowns();render();
+    return true;
+  }catch(e){console.error('Hash load error:',e);return false;}
+}
+
+function loadDemoData(){
+  const seen={};const groupKeys=[];
+  DEMO.forEach(t=>{const k=(t.groupKey||'').trim();if(k&&!seen[k]){seen[k]=true;groupKeys.push(k);}});
+  const groupRows=groupKeys.map(gk=>{
+    const ch=DEMO.filter(t=>(t.groupKey||'').trim()===gk);
+    const starts=ch.filter(t=>t.start).map(t=>parseDate(t.start)).filter(Boolean);
+    const ends=ch.filter(t=>t.end).map(t=>parseDate(t.end)).filter(Boolean);
+    const progs=ch.map(t=>Number(t.progress));
+    const minStart=starts.length?new Date(Math.min(...starts)):new Date();
+    const maxEnd=ends.length?new Date(Math.max(...ends)):new Date();
+    const avgProg=progs.length?Math.round(progs.reduce((a,b)=>a+b,0)/progs.length):0;
+    return{id:gk,road:gk,group:true,groupKey:gk,start:minStart.toISOString().split('T')[0],end:maxEnd.toISOString().split('T')[0],progress:avgProg,pm:gk,status:'open'};
+  });
+  tasks=[...groupRows,...DEMO.filter(t=>!t.group)];
+  document.getElementById('connLabel').textContent='Demo data ('+DEMO.filter(t=>!t.group).length+' tasks)';
+  populateDropdowns();render();
+}
+
+/* Try loading from hash on startup, fall back to demo data */
+if(!loadFromHash()){loadDemoData();}
+
+/* Also reload when hash changes (Power Apps updates src) */
+window.addEventListener('hashchange',loadFromHash);
+
+
+</script>
+
+</body>
+</html>
+
+
 
 /* ── Sync row heights between left and right panes ── */
 function syncRowHeights(){
