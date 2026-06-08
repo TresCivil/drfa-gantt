@@ -41,24 +41,44 @@ input[type=search]{width:110px}
 
 /* ── Print / PDF styles ── */
 @media print {
-  @page { size: A3 landscape; margin: 6mm; }
-  body,html { overflow: visible !important; width: auto !important; }
+  @page { size: A3 landscape; margin: 5mm; }
+  *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box !important; }
+  html, body { overflow: visible !important; height: auto !important; width: auto !important; margin: 0 !important; padding: 0 !important; }
+  script, style, link, meta { display: none !important; }
   #toolbar { display: none !important; }
-  #app { display: block !important; height: auto !important; overflow: visible !important; width: auto !important; }
-  #ganttWrap { display: flex !important; flex-direction: row !important; overflow: visible !important; height: auto !important; width: auto !important; align-items: flex-start !important; }
-  #splitPeg { display: none !important; }
-  #leftPane { overflow: visible !important; height: auto !important; max-width: none !important; flex-shrink: 0 !important; border-right: 1px solid #ccc !important; }
-  #rightPane { overflow: visible !important; height: auto !important; }
-  #leftPane .pane-head, #rightPane .pane-head { overflow: visible !important; position: static !important; }
-  #leftPane .pane-body, #rightPane .pane-body { overflow: visible !important; height: auto !important; min-height: 0 !important; }
-  #leftPane table, #rightPane table, #chartHeadTable { table-layout: auto !important; }
-  #leftPane thead th, #rightPane thead th { position: static !important; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .gantt-bar, .group-bar, .bar-progress, .bar-pct, .milestone-diamond, .today-line { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  tr.group-irw td { background: #eef2fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  tr.group-ew  td { background: #f0ecfb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  tr.group-epar td { background: #ebf5ee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   #emptyState { display: none !important; }
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .dep-svg { display: none !important; }
+  #splitPeg { display: none !important; }
+  #app { display: flex !important; flex-direction: column !important; height: auto !important; overflow: visible !important; width: 100% !important; }
+  #ganttWrap {
+    display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
+    overflow: visible !important; height: auto !important; width: 100% !important;
+    align-items: flex-start !important; page-break-inside: avoid !important;
+  }
+  #leftPane {
+    display: flex !important; flex-direction: column !important;
+    overflow: visible !important; height: auto !important;
+    max-width: none !important; flex-shrink: 0 !important; flex: none !important;
+    border-right: 1px solid #bbb !important;
+  }
+  #rightPane {
+    display: flex !important; flex-direction: column !important;
+    overflow: visible !important; height: auto !important;
+    flex: 1 1 0 !important; min-width: 0 !important;
+  }
+  #leftPane .pane-head, #rightPane .pane-head {
+    overflow: visible !important; flex-shrink: 0 !important; position: static !important;
+  }
+  #leftPane .pane-body, #rightPane .pane-body {
+    overflow: visible !important; height: auto !important; flex: none !important;
+  }
+  #leftPane table { width: max-content !important; }
+  #rightPane table, #chartHeadTable { min-width: 100% !important; }
+  #leftPane thead th, #rightPane thead th { position: static !important; background: #f0f0f0 !important; }
+  .modal-overlay, #modalOverlay, .modal { display: none !important; }
+  tr.group-irw td { background: #eef2fa !important; }
+  tr.group-ew  td { background: #f0ecfb !important; }
+  tr.group-epar td { background: #ebf5ee !important; }
 }
 #ganttWrap{flex:1;display:flex;overflow:hidden;position:relative}
 #leftPane{display:flex;flex-direction:column;overflow:hidden;border-right:3px solid var(--border-md);flex-shrink:0;width:55%;max-width:75%;min-width:180px}
@@ -1248,21 +1268,23 @@ function exportPDF(){
   btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Preparing…';
   btn.style.pointerEvents='none'; btn.style.opacity='0.7';
 
-  /* Expand both panes to full content width/height before printing */
-  const leftPane=document.getElementById('leftPane');
-  const rightPane=document.getElementById('rightPane');
-  const leftBody=document.getElementById('leftBody');
-  const rightBody=document.getElementById('rightBody');
-  const leftHead=document.getElementById('leftHead');
-  const rightHead=document.getElementById('rightHead');
-  const wrap=document.getElementById('ganttWrap');
-  const leftTable=document.getElementById('leftTable');
-  const ganttTable=document.getElementById('ganttTable');
-  const chartHeadTable=document.getElementById('chartHeadTable');
+  const leftPane  = document.getElementById('leftPane');
+  const rightPane = document.getElementById('rightPane');
+  const leftBody  = document.getElementById('leftBody');
+  const rightBody = document.getElementById('rightBody');
+  const leftHead  = document.getElementById('leftHead');
+  const rightHead = document.getElementById('rightHead');
+  const wrap      = document.getElementById('ganttWrap');
+  const app       = document.getElementById('app');
+  const leftTable = document.getElementById('leftTable');
+  const ganttTable= document.getElementById('ganttTable');
+  const chartHeadTable = document.getElementById('chartHeadTable');
 
+  /* Save current styles */
   const prev={
-    leftW:leftPane.style.width, leftMax:leftPane.style.maxWidth,
-    rightFlex:rightPane.style.flex, rightW:rightPane.style.width,
+    appH:app.style.height, appOv:app.style.overflow,
+    leftW:leftPane.style.width, leftMax:leftPane.style.maxWidth, leftFlex:leftPane.style.flex,
+    rightFlex:rightPane.style.flex, rightW:rightPane.style.width, rightOv:rightPane.style.overflow,
     wrapH:wrap.style.height, wrapOv:wrap.style.overflow,
     leftBodyH:leftBody.style.height, leftBodyOv:leftBody.style.overflow,
     rightBodyH:rightBody.style.height, rightBodyOv:rightBody.style.overflow,
@@ -1270,21 +1292,25 @@ function exportPDF(){
     chartTW:chartHeadTable?chartHeadTable.style.width:'',
   };
 
-  const leftW=leftTable?leftTable.scrollWidth+2:900;
-  const rightW=ganttTable?ganttTable.scrollWidth+2:1200;
-  const bodyH=Math.max(leftBody.scrollHeight,rightBody.scrollHeight);
+  /* Measure actual full content sizes */
+  const leftW  = (leftTable  ? leftTable.scrollWidth  : leftPane.scrollWidth)  + 4;
+  const rightW = (ganttTable ? ganttTable.scrollWidth : rightPane.scrollWidth) + 4;
+  const bodyH  = Math.max(leftBody.scrollHeight, rightBody.scrollHeight);
 
-  leftPane.style.width=leftW+'px'; leftPane.style.maxWidth='none';
-  rightPane.style.flex='none'; rightPane.style.width=rightW+'px';
+  /* Expand everything to full content */
+  app.style.height='auto'; app.style.overflow='visible';
   wrap.style.height='auto'; wrap.style.overflow='visible';
+  leftPane.style.width=leftW+'px'; leftPane.style.maxWidth='none'; leftPane.style.flex='none';
+  rightPane.style.flex='none'; rightPane.style.width=rightW+'px'; rightPane.style.overflow='visible';
   leftBody.style.height=bodyH+'px'; leftBody.style.overflow='visible';
   rightBody.style.height=bodyH+'px'; rightBody.style.overflow='visible';
   leftHead.style.overflow='visible'; rightHead.style.overflow='visible';
   if(chartHeadTable) chartHeadTable.style.width=rightW+'px';
 
   function restore(){
-    leftPane.style.width=prev.leftW; leftPane.style.maxWidth=prev.leftMax;
-    rightPane.style.flex=prev.rightFlex||'1'; rightPane.style.width=prev.rightW;
+    app.style.height=prev.appH; app.style.overflow=prev.appOv;
+    leftPane.style.width=prev.leftW; leftPane.style.maxWidth=prev.leftMax; leftPane.style.flex=prev.leftFlex||'';
+    rightPane.style.flex=prev.rightFlex||'1'; rightPane.style.width=prev.rightW; rightPane.style.overflow=prev.rightOv;
     wrap.style.height=prev.wrapH; wrap.style.overflow=prev.wrapOv;
     leftBody.style.height=prev.leftBodyH; leftBody.style.overflow=prev.leftBodyOv;
     rightBody.style.height=prev.rightBodyH; rightBody.style.overflow=prev.rightBodyOv;
@@ -1293,10 +1319,11 @@ function exportPDF(){
     btn.innerHTML=origHTML; btn.style.pointerEvents=''; btn.style.opacity='';
   }
 
+  /* Allow reflow then print */
   setTimeout(()=>{
     window.print();
-    setTimeout(restore, 1500);
-  }, 300);
+    setTimeout(restore, 2000);
+  }, 400);
 }
 /* ── Sync row heights between left and right panes ── */
 function syncRowHeights(){
@@ -1406,12 +1433,6 @@ if(!loadFromHash()){loadDemoData();}
 
 /* Also reload when hash changes (Power Apps updates src) */
 window.addEventListener('hashchange',loadFromHash);
-
-
-</script>
-
-</body>
-</html>
 
 
 
