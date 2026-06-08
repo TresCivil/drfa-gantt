@@ -1408,80 +1408,91 @@ function exportPDF(){
     svgEl('rect',{x:MAR,y:TABLE_Y,width:LEFT_W,height:HEAD_H/2+rows.length*ROW_H,fill:'none',stroke:'#aaa','stroke-width':'0.5'});
     svgEl('rect',{x:CHART_X,y:TABLE_Y,width:CHART_W,height:HEAD_H/2+rows.length*ROW_H,fill:'none',stroke:'#aaa','stroke-width':'0.5'});
 
-    /* ── Serialise SVG → PDF via canvas ── */
+    /* ── Serialise SVG → canvas → PDF via data URI (no blob URLs) ── */
     const svgStr=new XMLSerializer().serializeToString(svg);
-    const svgBlob=new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
-    const url=URL.createObjectURL(svgBlob);
+    const svgB64=btoa(unescape(encodeURIComponent(svgStr)));
+    const svgDataURI='data:image/svg+xml;base64,'+svgB64;
 
     const img=new Image();
     img.onload=function(){
-      const canvas=document.createElement('canvas');
-      canvas.width=SVG_W*2; canvas.height=SVG_H*2; /* 2× for sharpness */
-      const ctx=canvas.getContext('2d');
-      ctx.scale(2,2);
-      ctx.fillStyle='white';
-      ctx.fillRect(0,0,SVG_W,SVG_H);
-      ctx.drawImage(img,0,0,SVG_W,SVG_H);
-      URL.revokeObjectURL(url);
+      try{
+        const canvas=document.createElement('canvas');
+        canvas.width=SVG_W*2; canvas.height=SVG_H*2;
+        const ctx=canvas.getContext('2d');
+        ctx.scale(2,2);
+        ctx.fillStyle='white';
+        ctx.fillRect(0,0,SVG_W,SVG_H);
+        ctx.drawImage(img,0,0,SVG_W,SVG_H);
 
-      /* Build minimal PDF manually */
-      const imgData=canvas.toDataURL('image/jpeg',0.92);
-      const b64=imgData.split(',')[1];
-      const imgBytes=atob(b64);
-      const imgLen=imgBytes.length;
+        /* Get JPEG data URL directly — no blob needed */
+        const jpegDataURI=canvas.toDataURL('image/jpeg',0.92);
+        const b64=jpegDataURI.split(',')[1];
+        const imgBytes=atob(b64);
+        const imgLen=imgBytes.length;
 
-      /* PDF structure */
-      const parts=[];
-      function push(s){ parts.push(s); }
+        /* Build PDF as binary string */
+        let pdf='%PDF-1.4\n';
+        const o1off=pdf.length;
+        pdf+='1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
+        const o2off=pdf.length;
+        pdf+='2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n';
+        const o3off=pdf.length;
+        pdf+=`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Contents 4 0 R /Resources << /XObject << /Im1 5 0 R >> >> >>\nendobj\n`;
+        const stream=`q ${PW} 0 0 ${PH} 0 0 cm /Im1 Do Q\n`;
+        const o4off=pdf.length;
+        pdf+=`4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}endstream\nendobj\n`;
+        const o5off=pdf.length;
+        const o5hdr=`5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgLen} >>\nstream\n`;
+        pdf+=o5hdr;
 
-      push('%PDF-1.4\n');
-      /* Object 1: catalog */
-      const o1off=parts.join('').length;
-      push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
-      /* Object 2: pages */
-      const o2off=parts.join('').length;
-      push('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
-      /* Object 3: page — A3 landscape */
-      const o3off=parts.join('').length;
-      push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Contents 4 0 R /Resources << /XObject << /Im1 5 0 R >> >> >>\nendobj\n`);
-      /* Object 4: content stream — draw image full page */
-      const stream=`q ${PW} 0 0 ${PH} 0 0 cm /Im1 Do Q\n`;
-      const o4off=parts.join('').length;
-      push(`4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}endstream\nendobj\n`);
-      /* Object 5: image XObject */
-      const o5off=parts.join('').length;
-      push(`5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgLen} >>\nstream\n`);
-      const header=parts.join('');
-      /* Build final binary */
-      const enc=new TextEncoder();
-      const headerBytes=enc.encode(header);
-      const footerStr=`\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f \n${String(o1off).padStart(10,'0')} 00000 n \n${String(o2off).padStart(10,'0')} 00000 n \n${String(o3off).padStart(10,'0')} 00000 n \n${String(o4off).padStart(10,'0')} 00000 n \n${String(o5off).padStart(10,'0')} 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${o5off+enc.encode(`5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgLen} >>\nstream\n`).length+imgLen+1}\n%%EOF`;
-      const footerBytes=enc.encode(footerStr);
+        /* Assemble as Uint8Array */
+        const enc=new TextEncoder();
+        const hdrBytes=enc.encode(pdf);
+        const xrefOff=hdrBytes.length+imgLen;
+        const footerStr=`\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f \n${String(o1off).padStart(10,'0')} 00000 n \n${String(o2off).padStart(10,'0')} 00000 n \n${String(o3off).padStart(10,'0')} 00000 n \n${String(o4off).padStart(10,'0')} 00000 n \n${String(o5off).padStart(10,'0')} 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOff}\n%%EOF`;
+        const ftrBytes=enc.encode(footerStr);
 
-      /* Assemble */
-      const total=new Uint8Array(headerBytes.length+imgLen+footerBytes.length);
-      total.set(headerBytes,0);
-      for(let i=0;i<imgLen;i++) total[headerBytes.length+i]=imgBytes.charCodeAt(i);
-      total.set(footerBytes,headerBytes.length+imgLen);
+        const out=new Uint8Array(hdrBytes.length+imgLen+ftrBytes.length);
+        out.set(hdrBytes,0);
+        for(let i=0;i<imgLen;i++) out[hdrBytes.length+i]=imgBytes.charCodeAt(i);
+        out.set(ftrBytes,hdrBytes.length+imgLen);
 
-      const pdfBlob=new Blob([total],{type:'application/pdf'});
-      const pdfUrl=URL.createObjectURL(pdfBlob);
-      const a=document.createElement('a');
-      a.href=pdfUrl;
-      a.download='GanttChart_'+new Date().toISOString().split('T')[0]+'.pdf';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{URL.revokeObjectURL(pdfUrl);a.remove();},2000);
+        /* Convert to base64 for data URI download */
+        let binary='';
+        const chunk=8192;
+        for(let i=0;i<out.length;i+=chunk){
+          binary+=String.fromCharCode(...out.subarray(i,Math.min(i+chunk,out.length)));
+        }
+        const pdfB64=btoa(binary);
+        const pdfDataURI='data:application/pdf;base64,'+pdfB64;
 
-      btn.innerHTML=origHTML;
-      btn.style.pointerEvents='';
-      btn.style.opacity='';
+        const a=document.createElement('a');
+        a.href=pdfDataURI;
+        a.download='GanttChart_'+new Date().toISOString().split('T')[0]+'.pdf';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>a.remove(),1000);
+
+        /* Fallback: if download didn't trigger (sandboxed iframe), open in new tab */
+        setTimeout(()=>{
+          try{ window.open(pdfDataURI,'_blank'); }catch(e){}
+        },500);
+
+        btn.innerHTML=origHTML;
+        btn.style.pointerEvents='';
+        btn.style.opacity='';
+      }catch(e2){
+        console.error('PDF build error:',e2);
+        alert('PDF build failed: '+e2.message);
+        btn.innerHTML=origHTML;btn.style.pointerEvents='';btn.style.opacity='';
+      }
     };
-    img.onerror=function(){
-      alert('PDF generation failed — SVG render error.');
+    img.onerror=function(e){
+      console.error('SVG render error:',e);
+      alert('PDF generation failed — could not render chart image.');
       btn.innerHTML=origHTML;btn.style.pointerEvents='';btn.style.opacity='';
     };
-    img.src=url;
+    img.src=svgDataURI;
 
   } catch(err){
     console.error('PDF export error:',err);
