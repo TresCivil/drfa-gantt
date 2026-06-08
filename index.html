@@ -1272,10 +1272,7 @@ function exportPDF(){
   const ganttTable= document.getElementById('ganttTable');
   const chartHeadTable = document.getElementById('chartHeadTable');
 
-  /* Save original styles */
   const prev={
-    appH:app.style.height, appOv:app.style.overflow, appTr:app.style.transform,
-    appTrO:app.style.transformOrigin, appW:app.style.width, appPos:app.style.position,
     leftW:leftPane.style.width, leftMax:leftPane.style.maxWidth, leftFlex:leftPane.style.flex,
     rightFlex:rightPane.style.flex, rightW:rightPane.style.width, rightOv:rightPane.style.overflow,
     wrapH:wrap.style.height, wrapOv:wrap.style.overflow,
@@ -1283,12 +1280,10 @@ function exportPDF(){
     rightBodyH:rightBody.style.height, rightBodyOv:rightBody.style.overflow,
     leftHeadOv:leftHead.style.overflow, rightHeadOv:rightHead.style.overflow,
     chartTW:chartHeadTable?chartHeadTable.style.width:'',
+    appH:app.style.height, appOv:app.style.overflow,
   };
 
   function restore(){
-    app.style.transform=prev.appTr||''; app.style.transformOrigin=prev.appTrO||'';
-    app.style.width=prev.appW||''; app.style.height=prev.appH;
-    app.style.overflow=prev.appOv; app.style.position=prev.appPos||'';
     leftPane.style.width=prev.leftW; leftPane.style.maxWidth=prev.leftMax; leftPane.style.flex=prev.leftFlex||'';
     rightPane.style.flex=prev.rightFlex||'1'; rightPane.style.width=prev.rightW; rightPane.style.overflow=prev.rightOv;
     wrap.style.height=prev.wrapH; wrap.style.overflow=prev.wrapOv;
@@ -1296,12 +1291,13 @@ function exportPDF(){
     rightBody.style.height=prev.rightBodyH; rightBody.style.overflow=prev.rightBodyOv;
     leftHead.style.overflow=prev.leftHeadOv; rightHead.style.overflow=prev.rightHeadOv;
     if(chartHeadTable) chartHeadTable.style.width=prev.chartTW;
+    app.style.height=prev.appH; app.style.overflow=prev.appOv;
     const inj=document.getElementById('__printStyle');
     if(inj) inj.remove();
     btn.innerHTML=origHTML; btn.style.pointerEvents=''; btn.style.opacity='';
   }
 
-  /* Step 1 — expand panes to full content */
+  /* Expand panes to full content */
   const leftW  = (leftTable  ? leftTable.scrollWidth  : leftPane.scrollWidth)  + 4;
   const rightW = (ganttTable ? ganttTable.scrollWidth : rightPane.scrollWidth) + 4;
   const bodyH  = Math.max(leftBody.scrollHeight, rightBody.scrollHeight);
@@ -1317,42 +1313,29 @@ function exportPDF(){
 
   setTimeout(()=>{
     const totalW = app.scrollWidth;
-    const totalH = app.scrollHeight;
 
-    /* A3 landscape: 420×297mm. At 96dpi = 1587×1123px */
-    const pageW = 1587;
-    const pageH = 1123;
-    const scale = Math.min(pageW / totalW, pageH / totalH, 1);
+    /* A3 landscape at 96dpi = 1587px wide.
+       Calculate zoom so full width fits on one page horizontally.
+       Rows that overflow vertically will naturally flow to next pages. */
+    const printableW = 1587;
+    const zoom = Math.min(printableW / totalW, 1);
 
-    /* Apply scale to shrink content to fit one landscape page */
-    app.style.transformOrigin = 'top left';
-    app.style.transform = `scale(${scale})`;
-    /* Clamp body to scaled dimensions so browser doesn't add extra pages */
-    document.body.style.width  = Math.ceil(totalW * scale) + 'px';
-    document.body.style.height = Math.ceil(totalH * scale) + 'px';
-    document.body.style.overflow = 'hidden';
-
-    /* Inject a <style> tag that locks orientation to landscape */
-    const inj = document.createElement('style');
-    inj.id = '__printStyle';
-    inj.textContent = `
+    /* Inject print style with exact page size and zoom */
+    const inj=document.createElement('style');
+    inj.id='__printStyle';
+    inj.textContent=`
       @media print {
-        @page { size: ${pageW}px ${pageH}px landscape; margin: 0; }
-        html, body { width: ${Math.ceil(totalW*scale)}px !important; height: ${Math.ceil(totalH*scale)}px !important; overflow: hidden !important; }
-        #app { transform: scale(${scale}) !important; transform-origin: top left !important; }
+        @page { size: A3 landscape; margin: 8mm; }
+        html { zoom: ${zoom}; }
+        body { width: ${totalW}px !important; overflow: visible !important; }
       }
     `;
     document.head.appendChild(inj);
 
     setTimeout(()=>{
       window.print();
-      setTimeout(()=>{
-        document.body.style.width='';
-        document.body.style.height='';
-        document.body.style.overflow='';
-        restore();
-      }, 2000);
-    }, 400);
+      setTimeout(restore, 2000);
+    }, 300);
   }, 400);
 }
 /* ── Sync row heights between left and right panes ── */
