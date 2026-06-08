@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gantt Chart — Power Apps Embedded</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;background:#fff;color:#1a1a2e;overflow:hidden}
+:root{
+  --blue:#1a2e5a;--blue-bar:#2d4e8a;--blue-light:#e8eef7;
+  --purple:#4a2d7a;--purple-bar:#6b3fa0;--purple-light:#ede8f7;
+  --green:#1a4a2e;--green-bar:#2e7a4a;--green-light:#e8f5ee;
+  --gray-50:#f8f8f7;--gray-100:#eeede8;--gray-200:#d3d1c7;
+  --gray-400:#888780;--gray-600:#5f5e5a;--gray-800:#2c2c2a;
+  --red:#e24b4a;--border:rgba(0,0,0,0.08);--border-md:rgba(0,0,0,0.14);
+  --radius:5px;--radius-lg:10px;
+}
+#app{display:flex;flex-direction:column;height:100vh;background:#fff}
+
+/* toolbar */
+#toolbar{display:flex;align-items:center;gap:7px;padding:7px 12px;border-bottom:1px solid var(--border-md);background:var(--gray-50);flex-wrap:wrap;flex-shrink:0;min-height:44px}
+.seg{display:flex;border:1px solid var(--border-md);border-radius:var(--radius);overflow:hidden}
+.seg button{padding:3px 10px;font-size:12px;font-family:inherit;background:#fff;color:var(--gray-600);border:none;border-right:1px solid var(--border-md);cursor:pointer;height:26px;transition:background .1s,color .1s}
+.seg button:last-child{border-right:none}
+.seg button.active{background:var(--gray-800);color:#fff}
+.seg button:hover:not(.active){background:var(--gray-100)}
+.tb-sep{width:1px;height:20px;background:var(--border-md);margin:0 1px}
+.tb-label{font-size:11px;color:var(--gray-400);white-space:nowrap}
+select,input[type=search]{font-family:inherit;font-size:12px;height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:#fff;color:var(--gray-800);outline:none}
+select:focus,input:focus{border-color:#6b3fa0}
+input[type=search]{width:110px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--gray-200);flex-shrink:0}
+.status-dot.connected{background:#2e7a4a}
+#connLabel{font-size:11px;color:var(--gray-400)}
+
+/* legend */
+.legend{display:flex;align-items:center;gap:10px;margin-left:auto}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--gray-600)}
+.leg-dot{width:10px;height:10px;border-radius:2px}
+
+/* gantt wrap */
+#ganttWrap{flex:1;overflow:auto;position:relative}
+
+/* table */
+table{border-collapse:collapse;table-layout:fixed;width:max-content;min-width:100%}
+thead th{position:sticky;top:0;z-index:20;background:var(--gray-50);border-bottom:1px solid var(--border-md);font-size:11px;font-weight:600;color:var(--gray-600);padding:0 8px;height:26px;white-space:nowrap;text-align:left;text-transform:uppercase;letter-spacing:.03em}
+thead th.th-chart{padding:0;background:var(--gray-50)}
+tbody tr{transition:background .07s}
+tbody tr:hover td{background:#f4f6fb}
+tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:30px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* group rows */
+tr.group-row td{font-weight:700;border-bottom:1px solid var(--border-md)}
+tr.group-irw td{background:#eef2fa}
+tr.group-ew  td{background:#f0ecfb}
+tr.group-epar td{background:#ebf5ee}
+tr.group-irw:hover td{background:#e4ecf7}
+tr.group-ew:hover  td{background:#e8e2f9}
+tr.group-epar:hover td{background:#dff0e6}
+
+.expand-btn{cursor:pointer;font-size:10px;margin-right:4px;user-select:none;color:var(--gray-400)}
+
+/* column widths */
+.w-id{width:100px}.w-road{width:130px}.w-pm-col{width:90px}.w-team-col{width:110px}.w-date{width:100px}.w-dur{width:62px;text-align:center}.w-prog{width:90px}.w-cost{width:90px}.w-dep{width:110px}.w-mile{width:70px;text-align:center}.w-pm{width:0;padding:0;overflow:hidden}
+
+/* inline editable cells */
+.cell-edit{width:100%;height:100%;box-sizing:border-box;font-family:inherit;font-size:12px;border:none;outline:none;background:transparent;cursor:text;padding:0;color:inherit}
+.cell-edit:focus{background:#fff;border:1.5px solid #6b3fa0;border-radius:3px;padding:0 4px;cursor:text}
+.cell-edit[type=date]{font-size:11px;width:100%;cursor:pointer}
+.cell-edit[type=date]::-webkit-calendar-picker-indicator{opacity:0.6;cursor:pointer;margin-left:0;padding:0}
+.cell-edit[type=number]{font-size:12px}
+td.editable{padding:2px 4px;overflow:visible}
+td.editable:hover{background:#f0ecfb !important}
+
+/* progress */
+.prog-cell{display:flex;align-items:center;gap:5px}
+.prog-track{flex:1;max-width:44px;height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .3s}
+.prog-text{font-size:11px;color:var(--gray-600);min-width:28px}
+
+/* chart header */
+.chart-header{display:flex;flex-direction:column}
+.month-row{display:flex;border-bottom:1px solid var(--border-md);height:13px}
+.month-cell{font-size:10px;font-weight:600;color:var(--gray-600);padding:1px 4px;border-right:1px solid var(--border);white-space:nowrap;overflow:hidden}
+.tick-row{display:flex;height:13px;position:relative}
+.tick-cell{font-size:10px;color:var(--gray-400);border-right:1px solid var(--border);padding:1px 3px;text-align:center;flex-shrink:0;white-space:nowrap;overflow:hidden}
+
+/* chart cells */
+td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
+.chart-row-cell{position:relative;height:30px;overflow:visible}
+.today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:8;pointer-events:none;opacity:.65}
+.today-badge{position:absolute;top:1px;transform:translateX(-50%);background:var(--red);color:#fff;font-size:9px;font-weight:600;padding:1px 4px;border-radius:3px;white-space:nowrap;z-index:9;pointer-events:none}
+
+/* bars */
+.gantt-bar{position:absolute;height:17px;top:6px;border-radius:3px;cursor:grab;display:flex;align-items:center;overflow:hidden;user-select:none;transition:filter .1s,box-shadow .1s;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.gantt-bar:hover{filter:brightness(1.09);box-shadow:0 2px 6px rgba(0,0,0,.22)}
+.gantt-bar.dragging{cursor:grabbing;opacity:.88;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.28)}
+.bar-progress{position:absolute;left:0;top:0;height:100%;opacity:.25;background:#fff;pointer-events:none}
+.bar-pct{position:absolute;left:4px;font-size:10px;font-weight:600;color:#fff;white-space:nowrap;z-index:2;pointer-events:none;top:50%;transform:translateY(-50%)}
+.bar-label{position:absolute;font-size:10px;font-weight:400;color:#333;white-space:nowrap;z-index:2;pointer-events:none;top:50%;transform:translateY(-50%)}
+.resize-handle{position:absolute;right:0;top:0;width:7px;height:100%;cursor:ew-resize;z-index:5;opacity:0;transition:opacity .15s}
+.gantt-bar:hover .resize-handle{opacity:1}
+.resize-handle::after{content:'';position:absolute;right:2px;top:3px;bottom:3px;width:2px;background:rgba(255,255,255,.55);border-radius:1px}
+
+/* milestone */
+.milestone-diamond{position:absolute;width:12px;height:12px;top:9px;transform:rotate(45deg);border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+
+/* group bar */
+.group-bar{position:absolute;height:9px;top:10px;border-radius:2px;opacity:.82}
+
+/* grid lines (weekend shading) */
+.grid-shade{position:absolute;top:0;bottom:0;background:rgba(0,0,0,.025);pointer-events:none}
+
+/* modal */
+#modalOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:100;align-items:center;justify-content:center}
+#modalOverlay.show{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);border:1px solid var(--border-md);padding:20px 22px;min-width:320px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:3px}
+.modal p{font-size:12px;color:var(--gray-400);margin-bottom:14px}
+.modal-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.modal-row:last-of-type{border-bottom:none}
+.modal-row span:first-child{color:var(--gray-400)}
+.new-val{color:#4a2d7a;font-weight:700}
+.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.btn{padding:6px 15px;font-size:12px;font-family:inherit;border-radius:var(--radius);cursor:pointer;font-weight:500;transition:all .12s}
+.btn-cancel{background:#fff;border:1px solid var(--border-md);color:var(--gray-600)}
+.btn-cancel:hover{background:var(--gray-50)}
+.btn-save{background:#4a2d7a;border:1px solid #4a2d7a;color:#fff}
+.btn-save:hover{background:#3a2060}
+
+/* toast */
+#toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--gray-800);color:#fff;font-size:12px;font-weight:500;padding:7px 15px;border-radius:20px;opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;z-index:200;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* edit modal */
+#editOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:110;align-items:center;justify-content:center}
+#editOverlay.show{display:flex}
+.edit-modal{background:#fff;border-radius:var(--radius-lg);border:1px solid var(--border-md);padding:22px 24px;min-width:360px;max-width:440px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.edit-modal h3{font-size:15px;font-weight:700;margin-bottom:4px}
+.edit-modal p{font-size:12px;color:var(--gray-400);margin-bottom:16px}
+.edit-field{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
+.edit-field label{font-size:11px;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:.03em}
+.edit-field input{font-family:inherit;font-size:13px;height:32px;padding:0 10px;border:1px solid var(--border-md);border-radius:var(--radius);outline:none;transition:border-color .15s}
+.edit-field input:focus{border-color:#185FA5}
+.edit-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+.edit-id-badge{display:inline-block;background:#e8eef7;color:#185FA5;font-weight:700;font-size:12px;padding:2px 8px;border-radius:4px;margin-bottom:12px}
+
+#emptyState{display:none;flex-direction:column;align-items:center;justify-content:center;height:180px;color:var(--gray-400);gap:8px}
+#emptyState p{font-size:13px}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="toolbar">
+  <div class="seg" id="viewSeg">
+    <button onclick="setView('Close')">Close</button>
+    <button class="active" onclick="setView('Open')">Open</button>
+  </div>
+  <div class="seg" id="scaleSeg">
+    <button onclick="setScale('Days')">Days</button>
+    <button class="active" onclick="setScale('Weeks')">Weeks</button>
+    <button onclick="setScale('Months')">Months</button>
+  </div>
+  <div class="tb-sep"></div>
+  <span class="tb-label">Category</span>
+  <select id="fGroup" onchange="applyFilters()">
+    <option value="">All</option>
+    <option value="IRW">IRW</option>
+    <option value="EW">EW</option>
+    <option value="EPAR">EPAR</option>
+  </select>
+  <span class="tb-label">Recovery No.</span>
+  <select id="fId" onchange="applyFilters()"><option value="">All</option></select>
+  <span class="tb-label">Road</span>
+  <select id="fRoad" onchange="applyFilters()"><option value="">All roads</option></select>
+  <span class="tb-label">PM</span>
+  <select id="fPM" onchange="applyFilters()"><option value="">All PMs</option></select>
+  <span class="tb-label">Team</span>
+  <select id="fTeam" onchange="applyFilters()"><option value="">All teams</option></select>
+  <span class="tb-label">Progress</span>
+  <select id="fProg" onchange="applyFilters()">
+    <option value="">Any</option>
+    <option value="done">100%</option>
+    <option value="high">≥ 80%</option>
+    <option value="mid">40–79%</option>
+    <option value="low">&lt; 40%</option>
+  </select>
+  <span class="tb-label">Start From</span>
+  <input type="text" id="fDateFrom" placeholder="dd/mm/yyyy" oninput="applyFilters()" style="font-family:inherit;font-size:12px;height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:#fff;color:var(--gray-800);outline:none;width:100px">
+  <input type="search" id="fSearch" placeholder="Search…" oninput="applyFilters()">
+  <div class="tb-sep"></div>
+  <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--gray-600)">
+    <input type="checkbox" id="fHasDate" checked onchange="applyFilters()" style="width:14px;height:14px">
+    Has start date
+  </label>
+  <button onclick="clearFilters()" style="font-family:inherit;font-size:12px;height:26px;padding:0 10px;border:1px solid var(--border-md);border-radius:var(--radius);background:#fff;color:var(--gray-600);cursor:pointer;white-space:nowrap" onmouseover="this.style.background='#fce8e8';this.style.color='#e24b4a';this.style.borderColor='#e24b4a'" onmouseout="this.style.background='#fff';this.style.color='var(--gray-600)';this.style.borderColor='var(--border-md)'">✕ Clear filters</button>
+  <div class="tb-sep"></div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#2d4e8a"></div>IRW</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#6b3fa0"></div>EW</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#2e7a4a"></div>EPAR</div>
+  </div>
+  <div class="tb-sep"></div>
+  <div class="status-dot" id="statusDot"></div>
+  <span id="connLabel">Demo data</span>
+</div>
+
+<div id="ganttWrap">
+  <table id="ganttTable">
+    <thead>
+      <tr>
+        <th class="w-id">Recovery No.</th>
+        <th class="w-road">Road / Assets</th>
+        <th class="w-pm-col">PM</th>
+        <th class="w-team-col">Construction Team</th>
+        <th class="w-dep">Dependency</th>
+        <th class="w-cost">Est. Cost</th>
+        <th class="w-date">Start</th>
+        <th class="w-date">End</th>
+        <th class="w-dur">Duration</th>
+        <th class="w-mile">Milestone</th>
+        <th class="w-prog">Progress</th>
+        <th class="th-chart" id="chartHeaderCell">
+          <div class="chart-header">
+            <div class="month-row" id="monthRow"></div>
+            <div class="tick-row"  id="tickRow"></div>
+          </div>
+        </th>
+      </tr>
+    </thead>
+    <tbody id="ganttBody"></tbody>
+  </table>
+  <div id="emptyState">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="4" x2="8" y2="9"/><line x1="16" y1="4" x2="16" y2="9"/></svg>
+    <p>No tasks match your filters.</p>
+  </div>
+</div>
+</div>
+
+<div id="modalOverlay">
+  <div class="modal">
+    <h3>Confirm rescheduling</h3>
+    <p>This will update the task dates in Dataverse.</p>
+    <div id="modalContent"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="cancelSave()">Cancel</button>
+      <button class="btn btn-save"   onclick="confirmSave()">Save to Dataverse</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<div data-comment="Edit Task Modal"></div>
+<div id="editOverlay">
+  <div class="edit-modal">
+    <h3>Edit Task</h3>
+    <div id="editIdBadge" class="edit-id-badge"></div>
+    <p id="editRoadLabel" style="font-size:13px;font-weight:500;color:#2c2c2a;margin-bottom:14px"></p>
+    <div class="edit-field">
+      <label>Start Date</label>
+      <input type="date" id="editStart">
+    </div>
+    <div class="edit-field">
+      <label>End Date</label>
+      <input type="date" id="editEnd">
+    </div>
+    <div class="edit-field">
+      <label>Progress (%)</label>
+      <input type="number" id="editProgress" min="0" max="100" placeholder="0-100">
+    </div>
+    <div class="edit-field">
+      <label>PM</label>
+      <input type="text" id="editPM" placeholder="PM name">
+    </div>
+    <div class="edit-field">
+      <label>Construction Team</label>
+      <input type="text" id="editTeam" placeholder="Team name">
+    </div>
+    <div class="edit-actions">
+      <button class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-save" onclick="saveEditModal()">Save to Dataverse</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   GANTT — Power Apps Canvas App Embedded Component
+   postMessage IN:  { type:'LOAD_DATA', tasks:[...] }
+                    { type:'SET_FILTER', filter:{group,pm,road,progress,search,view,scale} }
+                    { type:'SET_SCALE',  scale:'Days'|'Weeks'|'Months' }
+                    { type:'SET_VIEW',   view:'Open'|'Close' }
+   postMessage OUT: { type:'TASK_UPDATED', task:{id,start,end,...} }
+                    { type:'TASK_SELECTED', task:{...} }
+                    { type:'READY' }
+   Task shape: { id, road, start(YYYY-MM-DD), end, progress(0-100),
+                 pm, status('open'|'closed'), group(bool), parent(id),
+                 milestone(bool), groupKey('IRW'|'EW'|'EPAR') }
+═══════════════════════════════════════════════════════════════ */
+
+/* group colour config */
+const GROUP_COLORS = {
+  IRW:  { bar:'#2d4e8a', dark:'#1a2e5a', light:'#d6e2f5', progFill:'#1a2e5a' },
+  EW:   { bar:'#6b3fa0', dark:'#4a2d7a', light:'#e0d6f5', progFill:'#4a2d7a' },
+  EPAR: { bar:'#2e7a4a', dark:'#1a4a2e', light:'#c8ecd8', progFill:'#1a4a2e' },
+};
+const DEFAULT_COLOR = { bar:'#5f5e5a', dark:'#2c2c2a', light:'#e0dfd8', progFill:'#2c2c2a' };
+
+function groupColor(t) {
+  const key = t.groupKey || (t.group ? t.id : null) || t.parent;
+  return GROUP_COLORS[key] || DEFAULT_COLOR;
+}
+
+/* demo data */
+const DEMO = [
+  {id:'IRW', road:'IRW', start:'2026-04-06',end:'2026-05-29',progress:59,pm:'IRW',group:true,groupKey:'IRW'},
+  {id:'DM00015',road:'Biripi Way',       start:'2026-04-06',end:'2026-04-09',progress:30, pm:'PM 1 | Finn Valley',   parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
+  {id:'DM00003',road:'Bowman River Rd',  start:'2026-04-06',end:'2026-04-10',progress:20, pm:'PM 3 | MCC Gloucester',parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:'DM00015'},
+  {id:'DM00016',road:'Biripi Way',       start:'2026-04-08',end:'2026-04-13',progress:100,pm:'PM 10 | Finn Valley',  parent:'IRW',groupKey:'IRW',status:'closed',milestone:true,predecessor:'DM00003'},
+  {id:'DM00021',road:'Bakers Creek Rd',  start:'2026-04-09',end:'2026-04-16',progress:90, pm:'PM 5 | MCC Gloucester',parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
+  {id:'DM00017',road:'Philip St',        start:'2026-04-10',end:'2026-04-15',progress:50, pm:'PM 6 | Finn Valley',   parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
+  {id:'DM00019',road:'Bakers Creek Rd',  start:'2026-04-14',end:'2026-05-07',progress:80, pm:'PM 2 | Saltwater',     parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
+  {id:'DM00018',road:'Bakers Creek Rd',  start:'2026-04-14',end:'2026-04-20',progress:60, pm:'PM 3 | MCC Gloucester',parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
+  {id:'DM00020',road:'Bakers Creek Rd',  start:'2026-04-16',end:'2026-04-16',progress:100,pm:'PM 2 | Saltwater',     parent:'IRW',groupKey:'IRW',status:'closed',milestone:true,predecessor:'DM00019'},
+  {id:'DM00022',road:'Bakers Creek Rd',  start:'2026-04-20',end:'2026-04-28',progress:20, pm:'PM 3 | Finn Valley',   parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
+
+  {id:'EW',  road:'EW',  start:'2026-04-15',end:'2026-05-29',progress:54,pm:'EW',group:true,groupKey:'EW'},
+  {id:'AE00001',road:'Abbotts Falls Rd', start:'2026-04-15',end:'2026-05-20',progress:100,pm:'PM2 | Irwin Tree Group', parent:'EW',groupKey:'EW',status:'closed',milestone:true, predecessor:null},
+  {id:'AE00002',road:'Aerodrome Rd',     start:'2026-04-27',end:'2026-05-01',progress:50, pm:'PM 1 | MM',              parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
+  {id:'AE00003',road:'Bulli Rd',         start:'2026-04-27',end:'2026-05-05',progress:30, pm:'PM 2 | Ability Tree Svc',parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:'AE00002'},
+  {id:'AE00004',road:'Factory Rd',       start:'2026-04-29',end:'2026-05-06',progress:40, pm:'PM 2 | MM',              parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
+  {id:'AE00005',road:'Glen Ora Rd',      start:'2026-05-01',end:'2026-05-06',progress:60, pm:'PM 2 | Irwin Tree Group',parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:'AE00004'},
+  {id:'AE00006',road:'Gloucester Tops Rd',start:'2026-05-04',end:'2026-05-24',progress:20,pm:'PM 3 | Arbor Workx',    parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
+  {id:'AE00007',road:'Hoggs Ln',         start:'2026-05-07',end:'2026-05-28',progress:80, pm:'PM 3 | Arbor Workx',    parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
+  {id:'AE00008',road:'Jericho Rd',       start:'2026-05-11',end:'2026-05-15',progress:90, pm:'PM 4 | Irwin Trees',    parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
+
+  {id:'EPAR',road:'EPAR',start:'2026-05-03',end:'2026-05-22',progress:53,pm:'EPAR',group:true,groupKey:'EPAR'},
+  {id:'DM00008',road:'Barrington West Rd',start:'2026-05-03',end:'2026-05-07',progress:70,pm:'PM 3 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
+  {id:'DM00005',road:'Tigrah Rd',         start:'2026-05-04',end:'2026-05-07',progress:90,pm:'PM 5 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
+  {id:'DM00006',road:'MR 7719 Thunderbolts',start:'2026-05-06',end:'2026-05-11',progress:50,pm:'PM 5 | Saltwater',   parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
+  {id:'DM00010',road:'Wallanbah Rd',      start:'2026-05-11',end:'2026-05-14',progress:20, pm:'PM 5 | Finn Valley',   parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:'DM00006'},
+  {id:'DM00014',road:'Mud Hut Rd',        start:'2026-05-11',end:'2026-05-18',progress:100,pm:'PM 9 | MCC Gloucester',parent:'EPAR',groupKey:'EPAR',status:'closed',milestone:true, predecessor:'DM00010'},
+  {id:'DM00012',road:'Carters Rd',        start:'2026-05-13',end:'2026-05-18',progress:50, pm:'PM 5 | MCC Gloucester',parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
+  {id:'DM00009',road:'Bucketts Rd',       start:'2026-05-18',end:'2026-05-21',progress:30, pm:'PM 4 | Saltwater',     parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
+];
+
+let tasks = [];
+let scale = 'Weeks', viewMode = 'Open', collapsed = {}, pending = null, isConnected = false;
+const TODAY = new Date('2026-05-29');
+
+/* helpers */
+function parseDate(d){
+  if(!d)return null;
+  if(typeof d==='string'){
+    /* ISO UTC format from Dataverse: 2026-05-19T16:00:00.000Z */
+    if(d.includes('T')){
+      const dt=new Date(d);
+      /* Return local date string to avoid timezone shift */
+      return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    }
+    /* Plain date string: 2026-05-20 */
+    const parts=d.split('-');
+    if(parts.length===3) return new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+  }
+  const dt=new Date(d);
+  return isNaN(dt.getTime())?null:new Date(dt.getFullYear(),dt.getMonth(),dt.getDate());
+}
+function toDateStr(d){
+  const dt=parseDate(d);
+  if(!dt)return'';
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+function fmtDate(d){if(!d)return'';const dt=parseDate(d);if(!dt)return'';return`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`}
+function parseDMY(s){if(!s)return'';const p=s.trim().split('/');if(p.length!==3)return'';const[dd,mm,yyyy]=p;if(!dd||!mm||!yyyy)return'';const d=parseInt(dd),m=parseInt(mm),y=parseInt(yyyy);if(isNaN(d)||isNaN(m)||isNaN(y)||m<1||m>12||d<1||d>31)return'';return`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function addDays(d,n){const dt=new Date(d);dt.setDate(dt.getDate()+n);return dt.toISOString().split('T')[0]}
+function diffDays(a,b){const da=parseDate(a),db=parseDate(b);if(!da||!db)return 0;return Math.round((db-da)/86400000)}
+function durLabel(s,e){if(!s||!e)return'0';const d=diffDays(s,e)+1;if(isNaN(d)||d<=0)return'0';return d<7?d+' d':(d/7).toFixed(1)+' wk'}
+function progColor(p){return'#1D9E75'}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200)}
+
+
+
+
+function postUp(data){
+  try{window.parent.postMessage(JSON.stringify(data),'*')}catch(e){}
+}
+
+/* timeline */
+function getRange(){
+  let mn=new Date('2099-01-01'),mx=new Date('2000-01-01');
+  tasks.forEach(t=>{if(!t.group){const s=parseDate(t.start),e=parseDate(t.end);if(s&&s<mn)mn=new Date(s);if(e&&e>mx)mx=new Date(e)}});
+  mn.setDate(mn.getDate()-7);mx.setDate(mx.getDate()+21);
+  return{start:mn,end:mx,days:Math.ceil((mx-mn)/86400000)}
+}
+function ppu(){return scale==='Days'?26:scale==='Weeks'?84:300}
+function xFor(dateStr,rs){
+  const dt=parseDate(dateStr);
+  if(!dt)return 0;
+  if(scale==='Days')return diffDays(rs,dt)*ppu();
+  if(scale==='Weeks')return(diffDays(rs,dt)/7)*ppu();
+  const mo=(dt.getFullYear()-rs.getFullYear())*12+(dt.getMonth()-rs.getMonth());
+  return mo*ppu()+(dt.getDate()/30)*ppu();
+}
+function totalW(range){
+  if(scale==='Days')return range.days*ppu();
+  if(scale==='Weeks')return Math.ceil(range.days/7)*ppu();
+  return Math.ceil(range.days/30)*ppu();
+}
+
+/* header */
+function buildHeader(range){
+  const mRow=document.getElementById('monthRow'),tRow=document.getElementById('tickRow');
+  mRow.innerHTML='';tRow.innerHTML='';
+  if(scale==='Weeks'){
+    const months={};let cur=new Date(range.start);
+    for(let i=0;cur<=range.end;i++){
+      const key=cur.toLocaleString('default',{month:'short'})+' '+cur.getFullYear();
+      months[key]=(months[key]||0)+ppu();
+      const tc=document.createElement('div');tc.className='tick-cell';tc.style.width=ppu()+'px';tc.textContent='W'+(i%4+1);tRow.appendChild(tc);
+      cur=new Date(cur);cur.setDate(cur.getDate()+7);
+    }
+    Object.entries(months).forEach(([k,w])=>{const mc=document.createElement('div');mc.className='month-cell';mc.style.width=w+'px';mc.textContent=k;mRow.appendChild(mc)});
+  } else if(scale==='Days'){
+    const months={};let cur=new Date(range.start);
+    while(cur<=range.end){
+      const key=cur.toLocaleString('default',{month:'short',year:'2-digit'});
+      months[key]=(months[key]||0)+ppu();
+      const tc=document.createElement('div');tc.className='tick-cell';tc.style.width=ppu()+'px';tc.textContent=cur.getDate();tRow.appendChild(tc);
+      cur=new Date(cur);cur.setDate(cur.getDate()+1);
+    }
+    Object.entries(months).forEach(([k,w])=>{const mc=document.createElement('div');mc.className='month-cell';mc.style.width=w+'px';mc.textContent=k;mRow.appendChild(mc)});
+  } else {
+    let cur=new Date(range.start.getFullYear(),range.start.getMonth(),1);
+    while(cur<=range.end){
+      const tc=document.createElement('div');tc.className='tick-cell';tc.style.width=ppu()+'px';tc.textContent=cur.toLocaleString('default',{month:'short'})+' '+cur.getFullYear();tRow.appendChild(tc);mRow.appendChild(document.createElement('div'));
+      cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+    }
+  }
+  tRow.style.position='relative';
+  const tx=xFor(TODAY.toISOString().split('T')[0],range.start);
+  const tl=document.createElement('div');tl.className='today-line';tl.style.left=tx+'px';
+  const tb=document.createElement('div');tb.className='today-badge';tb.textContent='Today';tb.style.left=tx+'px';
+  tRow.appendChild(tl);tRow.appendChild(tb);
+}
+
+/* filter */
+function getFiltered(){
+  const grp=document.getElementById('fGroup').value;
+  const pm=document.getElementById('fPM').value;
+  const team=document.getElementById('fTeam').value;
+  const road=document.getElementById('fRoad').value;
+  const recNum=document.getElementById('fId').value;
+  const prog=document.getElementById('fProg').value;
+  const q=(document.getElementById('fSearch').value||'').toLowerCase().trim();
+  const hasDateOnly = document.getElementById('fHasDate') ? document.getElementById('fHasDate').checked : true;
+  const dateFromEl=document.getElementById('fDateFrom');
+  const dateFrom=dateFromEl&&dateFromEl.value?parseDate(parseDMY(dateFromEl.value)):null;
+  return tasks.filter(t=>{
+    if(t.group)return false; /* group visibility handled in render based on children */
+    if(hasDateOnly && !t.start && !t.hasStartDate)return false;
+    if(!t.milestone){
+      if(viewMode==='Open'&&t.status==='closed')return false;
+      if(viewMode==='Close'&&t.status!=='closed')return false;
+    }
+    if(grp&&t.groupKey!==grp)return false;
+    if(pm&&!(t.pm||'').startsWith(pm))return false;
+    if(team&&!(t.pm||'').includes(team))return false;
+    if(road&&t.road!==road)return false;
+    if(recNum&&t.id!==recNum)return false;
+    if(dateFrom&&t.start){const ts=parseDate(t.start);if(ts&&ts<dateFrom)return false;}
+    if(prog){
+      if(prog==='done'&&t.progress!==100)return false;
+      if(prog==='high'&&t.progress<80)return false;
+      if(prog==='mid'&&(t.progress<40||t.progress>=80))return false;
+      if(prog==='low'&&t.progress>=40)return false;
+    }
+    if(q){
+      const pmParts=(t.pm||'').split(' | ');
+      const pmName=(pmParts[0]||'').toLowerCase();
+      const teamName=(pmParts[1]||'').toLowerCase();
+      const startStr=fmtDate(t.start).toLowerCase();
+      const endStr=fmtDate(t.end).toLowerCase();
+      const durStr=durLabel(t.start,t.end).toLowerCase();
+      const progStr=(t.progress||0)+'%';
+      const statusStr=(t.status||'').toLowerCase();
+      const groupStr=(t.groupKey||'').toLowerCase();
+      const haystack=[
+        t.id.toLowerCase(),
+        (t.road||'').toLowerCase(),
+        pmName, teamName,
+        startStr, endStr,
+        durStr, progStr,
+        statusStr, groupStr
+      ].join(' ');
+      const words=q.trim().split(/\s+/).filter(Boolean);
+      if(!words.every(w=>haystack.includes(w)))return false;
+    }
+    return true;
+  });
+}
+
+/* render */
+function render(){
+  const range=getRange(),tw=totalW(range);
+  buildHeader(range);
+  const filtered=getFiltered();
+  /* Sort: interleave group rows with their children in correct order */
+  const groupFirst = [];
+  const childRows = filtered.filter(t=>!t.group);
+  const allGroupRows = tasks.filter(t=>t.group);
+
+  allGroupRows.forEach(g => {
+    const grpFilter = document.getElementById('fGroup').value;
+    if(grpFilter && g.id !== grpFilter) return; /* respect Category dropdown */
+    const children = childRows.filter(t=>(t.parent||'').trim()===g.id);
+    if(children.length === 0) return; /* hide group if no children pass filters */
+    groupFirst.push(g);
+    children.forEach(t=>groupFirst.push(t));
+  });
+  /* Add any tasks with no parent at the end */
+  childRows.filter(t=>!t.parent).forEach(t=>groupFirst.push(t));
+  /* visIds must include ALL task ids so parent checks work */
+  const visIds=new Set(tasks.map(t=>t.id));
+  const tbody=document.getElementById('ganttBody');
+  tbody.innerHTML='';
+  let rowCount=0;
+
+  /* track bar positions for drawing connector lines after rows are built
+     barPos[id] = { xEnd, xStart, rowIndex } */
+  const barPos={};
+  const visibleRows=[];   /* ordered list of task ids as rendered */
+
+  groupFirst.forEach(t=>{
+    if(t.parent&&!visIds.has(t.parent))return;
+    if(t.parent&&collapsed[t.parent])return;
+    visibleRows.push(t.id);
+    rowCount++;
+    const gc=groupColor(t);
+    const tr=document.createElement('tr');
+    if(t.group) tr.className='group-row group-'+t.id.toLowerCase();
+    tr.onclick=()=>{
+      postUp({type:'TASK_SELECTED',task:t});
+    };
+
+    /* ID */
+    const tdId=document.createElement('td');tdId.className='w-id';
+    if(t.group){
+      const btn=document.createElement('span');btn.className='expand-btn';
+      btn.textContent=collapsed[t.id]?'▶':'▼';
+      btn.onclick=e=>{e.stopPropagation();collapsed[t.id]=!collapsed[t.id];render()};
+      tdId.appendChild(btn);
+      const idSpan=document.createElement('span');idSpan.style.color=gc.bar;idSpan.style.fontWeight='700';idSpan.textContent=t.id;tdId.appendChild(idSpan);
+    } else { tdId.textContent=t.id; }
+    tr.appendChild(tdId);
+
+    const tdR=document.createElement('td');tdR.className='w-road';tdR.textContent=t.group?'':t.road;tr.appendChild(tdR);
+
+    /* PM — inline editable */
+    const tdPmCol=document.createElement('td');tdPmCol.className='w-pm-col editable';
+    if(t.group){
+      tdPmCol.textContent='';
+    } else {
+      const pmParts=(t.pm||'').split(' | ');
+      const inPM=document.createElement('input');
+      inPM.className='cell-edit';inPM.type='text';
+      inPM.value=pmParts[0]||'';
+      inPM.placeholder='PM';
+      inPM.onclick=e=>e.stopPropagation();
+      inPM.onchange=()=>{
+        const teamVal=(t.pm||'').split(' | ')[1]||'';
+        t.pm=inPM.value+(teamVal?' | '+teamVal:'');
+        postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:t.progress,pm:inPM.value,team:teamVal,groupKey:t.groupKey}});
+        toast('✓ PM updated');
+      };
+      tdPmCol.appendChild(inPM);
+    }
+    tr.appendChild(tdPmCol);
+
+    /* Construction Team — inline editable */
+    const tdTeamCol=document.createElement('td');tdTeamCol.className='w-team-col editable';
+    if(t.group){
+      tdTeamCol.textContent='';
+    } else {
+      const pmParts2=(t.pm||'').split(' | ');
+      const inTeam=document.createElement('input');
+      inTeam.className='cell-edit';inTeam.type='text';
+      inTeam.value=pmParts2[1]||'';
+      inTeam.placeholder='Team';
+      inTeam.onclick=e=>e.stopPropagation();
+      inTeam.onchange=()=>{
+        const pmVal=(t.pm||'').split(' | ')[0]||'';
+        t.pm=pmVal+(inTeam.value?' | '+inTeam.value:'');
+        postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:t.progress,pm:pmVal,team:inTeam.value,groupKey:t.groupKey}});
+        toast('✓ Team updated');
+      };
+      tdTeamCol.appendChild(inTeam);
+    }
+    tr.appendChild(tdTeamCol);
+
+    /* Dependency — multi-select dropdown */
+    const tdDep=document.createElement('td');tdDep.className='w-dep editable';tdDep.style.position='relative';
+    if(t.group){
+      tdDep.textContent='';
+    } else {
+      /* Show selected values as a clickable tag area */
+      const depSelected=(t.predecessor||'').split(',').map(s=>s.trim()).filter(Boolean);
+      const depDisplay=document.createElement('div');
+      depDisplay.style.cssText='min-height:22px;font-size:11px;cursor:pointer;display:flex;flex-wrap:wrap;gap:2px;align-items:center;padding:1px 2px';
+      const updateDepDisplay=()=>{
+        depDisplay.innerHTML='';
+        const vals=(t.predecessor||'').split(',').map(s=>s.trim()).filter(Boolean);
+        if(!vals.length){
+          const ph=document.createElement('span');ph.style.color='var(--gray-400)';ph.textContent='None';
+          depDisplay.appendChild(ph);
+        } else {
+          vals.forEach(v=>{
+            const tag=document.createElement('span');
+            tag.style.cssText='background:var(--blue-light);color:var(--blue);border-radius:3px;padding:0 4px;font-size:10px;white-space:nowrap';
+            tag.textContent=v;depDisplay.appendChild(tag);
+          });
+        }
+      };
+      updateDepDisplay();
+
+      /* Dropdown panel */
+      let depDropdown=null;
+      depDisplay.onclick=e=>{
+        e.stopPropagation();
+        if(depDropdown){depDropdown.remove();depDropdown=null;return;}
+        depDropdown=document.createElement('div');
+        depDropdown.style.cssText='position:fixed;background:#fff;border:1px solid var(--border-md);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;max-height:200px;overflow-y:auto;min-width:140px;padding:4px 0';
+        const rect=depDisplay.getBoundingClientRect();
+        depDropdown.style.left=rect.left+'px';
+        depDropdown.style.top=(rect.bottom+2)+'px';
+
+        /* Search input */
+        const srch=document.createElement('input');
+        srch.type='text';srch.placeholder='Search...';
+        srch.style.cssText='width:calc(100% - 8px);margin:4px;padding:3px 6px;font-size:11px;border:1px solid var(--border-md);border-radius:3px;outline:none;box-sizing:border-box';
+        depDropdown.appendChild(srch);
+
+        const listEl=document.createElement('div');
+        depDropdown.appendChild(listEl);
+
+        const renderList=(filter)=>{
+          listEl.innerHTML='';
+          const currentVals=(t.predecessor||'').split(',').map(s=>s.trim()).filter(Boolean);
+          const otherTasks=tasks.filter(x=>!x.group&&x.id!==t.id&&(!filter||x.id.toLowerCase().includes(filter.toLowerCase())));
+          otherTasks.forEach(ot=>{
+            const item=document.createElement('div');
+            const checked=currentVals.includes(ot.id);
+            item.style.cssText=`display:flex;align-items:center;gap:6px;padding:4px 8px;cursor:pointer;font-size:11px;${checked?'background:var(--blue-light)':''}`;
+            item.onmouseover=()=>item.style.background=checked?'var(--blue-light)':'var(--gray-50)';
+            item.onmouseout=()=>item.style.background=checked?'var(--blue-light)':'';
+            const chk=document.createElement('input');chk.type='checkbox';chk.checked=checked;chk.style.cssText='width:12px;height:12px';
+            const lbl=document.createElement('span');lbl.textContent=ot.id+(ot.road?' — '+ot.road.substring(0,15):'');
+            item.appendChild(chk);item.appendChild(lbl);
+            item.onclick=e2=>{
+              e2.stopPropagation();
+              let vals=(t.predecessor||'').split(',').map(s=>s.trim()).filter(Boolean);
+              if(chk.checked){vals=vals.filter(v=>v!==ot.id);}
+              else{vals.push(ot.id);}
+              t.predecessor=vals.join(',');
+              updateDepDisplay();
+              postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,predecessor:t.predecessor}});
+              toast('✓ Dependency updated');
+              renderList(srch.value);
+              render();
+            };
+            listEl.appendChild(item);
+          });
+          if(!otherTasks.length){
+            const empty=document.createElement('div');empty.style.cssText='padding:6px 8px;font-size:11px;color:var(--gray-400)';
+            empty.textContent='No tasks found';listEl.appendChild(empty);
+          }
+        };
+        renderList('');
+        srch.oninput=()=>renderList(srch.value);
+        document.body.appendChild(depDropdown);
+
+        /* Close on outside click */
+        const closeHandler=()=>{if(depDropdown){depDropdown.remove();depDropdown=null;}document.removeEventListener('click',closeHandler);};
+        setTimeout(()=>document.addEventListener('click',closeHandler),0);
+      };
+      tdDep.appendChild(depDisplay);
+    }
+    tr.appendChild(tdDep);
+
+    /* Estimated Cost */
+    const tdCost=document.createElement('td');tdCost.className='w-cost editable';
+    if(t.group){
+      tdCost.textContent='';
+    } else {
+      const costWrap=document.createElement('div');costWrap.style.cssText='display:flex;align-items:center;gap:2px';
+      const dollarSign=document.createElement('span');dollarSign.textContent='$';dollarSign.style.cssText='font-size:12px;color:var(--gray-600)';
+      const inCost=document.createElement('input');
+      inCost.className='cell-edit';inCost.type='number';inCost.min='0';
+      inCost.value=t.estimatedCost||'';inCost.placeholder='0';
+      inCost.style.width='72px';inCost.style.textAlign='right';
+      inCost.onclick=e=>e.stopPropagation();
+      inCost.onchange=()=>{
+        t.estimatedCost=inCost.value;
+        postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,estimatedCost:inCost.value}});
+        toast('✓ Cost updated');
+      };
+      costWrap.appendChild(dollarSign);
+      costWrap.appendChild(inCost);
+      tdCost.appendChild(costWrap);
+    }
+    tr.appendChild(tdCost);
+
+    /* Start — inline editable date dd/mm/yyyy */
+    const tdS=document.createElement('td');tdS.className='w-date editable';
+    if(t.group){
+      tdS.textContent=fmtDate(t.start);tdS.style.color=gc.bar;tdS.style.fontWeight='700';
+    } else {
+      const inStart=document.createElement('input');
+      inStart.className='cell-edit';inStart.type='text';
+      inStart.placeholder='dd/mm/yyyy';
+      inStart.value=t.start?fmtDate(toDateStr(t.start)):'';
+      inStart.style.width='90px';
+      inStart.onclick=e=>e.stopPropagation();
+      inStart.onblur=()=>{
+        const iso=parseDMY(inStart.value);
+        if(!iso&&inStart.value){inStart.value=t.start?fmtDate(toDateStr(t.start)):'';return;}
+        if(iso){t.start=iso;t.status=t.progress===100?'closed':'open';
+          postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:t.progress,pm:t.pm,groupKey:t.groupKey}});
+          toast('✓ Start date updated');render();}
+      };
+      if(!t.start)tdS.style.background='#fce8e8';
+      tdS.appendChild(inStart);
+    }
+    tr.appendChild(tdS);
+
+    /* End — inline editable date dd/mm/yyyy */
+    const tdE=document.createElement('td');tdE.className='w-date editable';
+    if(t.group){
+      tdE.textContent=fmtDate(t.end);tdE.style.color=gc.bar;tdE.style.fontWeight='700';
+    } else {
+      const hasEnd=t.hasEndDate===true?true:t.hasEndDate===false?false:(!!t.end&&t.end!==''&&t.end!==t.start);
+      const inEnd=document.createElement('input');
+      inEnd.className='cell-edit';inEnd.type='text';
+      inEnd.placeholder='dd/mm/yyyy';
+      inEnd.value=hasEnd?fmtDate(toDateStr(t.end)):'';
+      inEnd.style.width='90px';
+      inEnd.onclick=e=>e.stopPropagation();
+      inEnd.onblur=()=>{
+        const iso=parseDMY(inEnd.value);
+        if(!iso&&inEnd.value){inEnd.value=t.end?fmtDate(toDateStr(t.end)):'';return;}
+        if(iso){t.end=iso;t.hasEndDate=true;t.status=t.progress===100?'closed':'open';
+          postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:t.progress,pm:t.pm,groupKey:t.groupKey}});
+          toast('✓ End date updated');render();}
+      };
+      if(!hasEnd||!t.start)tdE.style.background='#fce8e8';
+      tdE.appendChild(inEnd);
+    }
+    tr.appendChild(tdE);
+
+    /* Duration — calculated, read only */
+    const tdD=document.createElement('td');tdD.className='w-dur';
+    tdD.textContent=durLabel(t.start,t.end);
+    if(t.group){tdD.style.fontWeight='700';tdD.style.color=gc.bar}
+    tr.appendChild(tdD);
+
+    /* Progress — inline editable number */
+    const tdP=document.createElement('td');tdP.className='w-prog editable';
+    if(t.group){
+      const pc=document.createElement('div');pc.className='prog-cell';
+      const track=document.createElement('div');track.className='prog-track';
+      const fill=document.createElement('div');fill.className='prog-fill';
+      fill.style.width=t.progress+'%';fill.style.background=progColor(t.progress);
+      track.appendChild(fill);pc.appendChild(track);
+      const pt=document.createElement('span');pt.className='prog-text';pt.textContent=t.progress+'%';pc.appendChild(pt);
+      tdP.appendChild(pc);
+    } else {
+      const pc=document.createElement('div');pc.className='prog-cell';
+      const track=document.createElement('div');track.className='prog-track';
+      const fill=document.createElement('div');fill.className='prog-fill';
+      fill.style.width=t.progress+'%';fill.style.background=progColor(t.progress);
+      track.appendChild(fill);pc.appendChild(track);
+      const inProg=document.createElement('input');
+      inProg.className='cell-edit';inProg.type='number';
+      inProg.min='0';inProg.max='100';
+      inProg.value=t.progress||0;
+      inProg.style.width='40px';inProg.style.textAlign='right';
+      inProg.onclick=e=>e.stopPropagation();
+      inProg.onchange=()=>{
+        const v=Math.min(100,Math.max(0,parseInt(inProg.value)||0));
+        inProg.value=v;t.progress=v;
+        fill.style.width=v+'%';
+        t.status=v===100?'closed':'open';
+        postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:v,pm:t.pm,groupKey:t.groupKey}});
+        toast('✓ Progress updated');render();
+      };
+      pc.appendChild(inProg);
+      const pct=document.createElement('span');pct.style.fontSize='11px';pct.style.color='var(--gray-400)';pct.textContent='%';pc.appendChild(pct);
+      tdP.appendChild(pc);
+    }
+    tr.appendChild(tdP);
+
+    /* Milestone — True/False dropdown */
+    const tdMile2=document.createElement('td');tdMile2.className='w-mile editable';
+    if(!t.group){
+      const selMile=document.createElement('select');
+      selMile.className='cell-edit';
+      selMile.style.cssText='width:70px;font-size:12px;cursor:pointer';
+      const optF=document.createElement('option');optF.value='false';optF.textContent='False';
+      const optT=document.createElement('option');optT.value='true';optT.textContent='True';
+      selMile.appendChild(optF);selMile.appendChild(optT);
+      selMile.value=t.milestone===true?'true':'false';
+      selMile.onclick=e=>e.stopPropagation();
+      selMile.onchange=()=>{
+        t.milestone=selMile.value==='true';
+        postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,milestone:t.milestone}});
+        toast('✓ Milestone updated');render();
+      };
+      tdMile2.appendChild(selMile);
+    }
+    /* Insert milestone before progress */
+    tr.insertBefore(tdMile2, tdP);
+
+    /* Chart cell */
+    const tdChart=document.createElement('td');tdChart.className='td-chart';
+    const cell=document.createElement('div');cell.className='chart-row-cell';cell.style.width=tw+'px';
+
+    const todayX=xFor(TODAY.toISOString().split('T')[0],range.start);
+    const tl=document.createElement('div');tl.className='today-line';tl.style.left=todayX+'px';cell.appendChild(tl);
+
+    if(t.milestone===true){
+      const mx=xFor(t.start,range.start);
+      const ms=document.createElement('div');ms.className='milestone-diamond';
+      ms.style.left=(mx-6)+'px';ms.style.background=gc.bar;cell.appendChild(ms);
+      const ml=document.createElement('div');
+      ml.style.cssText=`position:absolute;left:${mx+10}px;top:50%;transform:translateY(-50%);font-size:10px;color:#333;white-space:nowrap`;
+      ml.textContent=t.pm;cell.appendChild(ml);
+      barPos[t.id]={xStart:mx, xEnd:mx, rowIdx:visibleRows.length-1};
+    } else if(t.group){
+      const x=xFor(t.start,range.start);
+      const w=Math.max(xFor(t.end,range.start)-x+ppu()*0.1,24);
+      const gb=document.createElement('div');gb.className='group-bar';
+      gb.style.left=x+'px';gb.style.width=w+'px';gb.style.background=gc.dark;
+      const gp=document.createElement('div');
+      gp.style.cssText=`position:absolute;left:0;top:0;height:100%;width:${t.progress}%;background:${gc.bar};border-radius:2px`;
+      gb.appendChild(gp);
+      const gl=document.createElement('div');
+      gl.style.cssText=`position:absolute;right:-${t.id.length*6+4}px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:${gc.dark};white-space:nowrap`;
+      gl.textContent=t.id;gb.appendChild(gl);
+      cell.appendChild(gb);
+      barPos[t.id]={xStart:x, xEnd:x+w, rowIdx:visibleRows.length-1};
+    } else {
+      const x=xFor(t.start,range.start);
+      const w=Math.max(xFor(t.end,range.start)-x+ppu()*0.12,16);
+      const bar=document.createElement('div');bar.className='gantt-bar';
+      bar.style.left=x+'px';bar.style.width=w+'px';bar.style.background=gc.bar;
+      const prog=document.createElement('div');prog.className='bar-progress';prog.style.width=t.progress+'%';bar.appendChild(prog);
+      const pct=document.createElement('div');pct.className='bar-pct';pct.textContent=t.progress+'%';bar.appendChild(pct);
+      const rh=document.createElement('div');rh.className='resize-handle';bar.appendChild(rh);
+      setupDrag(bar,rh,t,range);
+      cell.appendChild(bar);
+      const lbl=document.createElement('div');lbl.className='bar-label';
+      lbl.textContent=t.pm;lbl.style.left=(x+w+5)+'px';
+      cell.appendChild(lbl);
+      barPos[t.id]={xStart:x, xEnd:x+w, rowIdx:visibleRows.length-1};
+    }
+
+    tdChart.className='td-chart';tdChart.dataset.taskId=t.id;
+    tdChart.appendChild(cell);tr.appendChild(tdChart);
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('emptyState').style.display=rowCount===0?'flex':'none';
+
+  /* ── Draw dependency connector lines after DOM is built ── */
+  requestAnimationFrame(()=>{
+    /* remove old SVG overlays */
+    document.querySelectorAll('.dep-svg').forEach(s=>s.remove());
+
+    const ROW_H=30;
+    const taskMap=Object.fromEntries(tasks.map(t=>[t.id,t]));
+    const connectors=[];
+
+    visibleRows.forEach((tid)=>{
+      const t=taskMap[tid];
+      if(!t||!t.predecessor||t.group)return;
+      /* Support multiple predecessors separated by comma */
+      const fromIds=t.predecessor.split(',').map(s=>s.trim()).filter(Boolean);
+      fromIds.forEach(fromId=>{
+        if(!barPos[fromId]||!barPos[tid])return;
+        const from=barPos[fromId];
+        const to=barPos[tid];
+        if(!from||!to)return;
+        const col=groupColor(taskMap[tid]||{groupKey:null}).bar;
+        connectors.push({from, to, col, tid, fromId});
+      });
+    });
+
+    /* ── Single full-table SVG overlay for all connectors ── */
+    const totalRows=visibleRows.length;
+    const svgTotalH=totalRows*ROW_H;
+    const ns='http://www.w3.org/2000/svg';
+    const svg=document.createElementNS(ns,'svg');
+    svg.setAttribute('class','dep-svg');
+    svg.style.cssText=`position:absolute;left:0;top:0;width:${tw}px;height:${svgTotalH}px;pointer-events:none;z-index:4;overflow:visible`;
+
+    /* one defs block for all markers */
+    const defs=document.createElementNS(ns,'defs');
+    const usedColors=new Set();
+    connectors.forEach(c=>{
+      if(!usedColors.has(c.col)){
+        usedColors.add(c.col);
+        const mid=`arr-${c.col.replace('#','')}`;
+        defs.innerHTML+=`<marker id="${mid}" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="${c.col}"/></marker>`;
+      }
+    });
+    svg.appendChild(defs);
+
+    connectors.forEach(c=>{
+      /* absolute Y centers based on row index */
+      const fromY = c.from.rowIdx * ROW_H + ROW_H/2;
+      const toY   = c.to.rowIdx   * ROW_H + ROW_H/2;
+
+      /* start from LEFT edge of predecessor bar, go further left, drop down, arrive at left of dependent bar */
+      const x1 = c.from.xStart;       /* left edge of predecessor bar */
+      const x2 = c.to.xStart;         /* left edge of dependent bar */
+      const vx = Math.min(x1, x2) - 10;  /* vertical channel: 10px left of leftmost bar */
+
+      const path = `M${x1},${fromY} L${vx},${fromY} L${vx},${toY} L${x2},${toY}`;
+
+      const mid=`arr-${c.col.replace('#','')}`;
+      const line=document.createElementNS(ns,'path');
+      line.setAttribute('d',path);
+      line.setAttribute('fill','none');
+      line.setAttribute('stroke',c.col);
+      line.setAttribute('stroke-width','1.5');
+      line.setAttribute('marker-end',`url(#${mid})`);
+      svg.appendChild(line);
+    });
+
+    /* attach to first chart cell so it stays in the chart column */
+    const firstChartCell=tbody.querySelector('.chart-row-cell');
+    if(firstChartCell) firstChartCell.appendChild(svg);
+  });
+}
+
+/* drag */
+function setupDrag(bar,rh,task,range){
+  let startX,origLeft,origWidth,mode;
+  function onMove(e){const cx=e.touches?e.touches[0].clientX:e.clientX,dx=cx-startX;
+    if(mode==='move')bar.style.left=Math.max(0,origLeft+dx)+'px';
+    else bar.style.width=Math.max(origWidth+dx,16)+'px';}
+  function onUp(){
+    document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);
+    bar.classList.remove('dragging');
+    const nl=parseFloat(bar.style.left),nw=parseFloat(bar.style.width);
+    const dp=scale==='Days'?1:scale==='Weeks'?7:30;
+    const ds=Math.round(((nl-origLeft)/ppu())*dp),dr=Math.round(((nw-origWidth)/ppu())*dp);
+    if(ds===0&&dr===0)return;
+    const ns=addDays(task.start,ds),ne=mode==='move'?addDays(task.end,ds):addDays(task.end,dr);
+    pending={task,newStart:ns,newEnd:ne};showModal(task,ns,ne);
+  }
+  bar.addEventListener('mousedown',e=>{
+    if(e.target===rh)return;
+    mode='move';startX=e.clientX;origLeft=parseFloat(bar.style.left);origWidth=parseFloat(bar.style.width);
+    bar.classList.add('dragging');document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);e.preventDefault();
+  });
+  rh.addEventListener('mousedown',e=>{
+    mode='resize';startX=e.clientX;origLeft=parseFloat(bar.style.left);origWidth=parseFloat(bar.style.width);
+    bar.classList.add('dragging');document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);e.preventDefault();e.stopPropagation();
+  });
+}
+
+/* modal */
+function showModal(task,ns,ne){
+  document.getElementById('modalContent').innerHTML=`
+    <div class="modal-row"><span>Task ID</span><span>${task.id}</span></div>
+    <div class="modal-row"><span>Road / Asset</span><span>${task.road}</span></div>
+    <div class="modal-row"><span>Old start</span><span>${fmtDate(task.start)}</span></div>
+    <div class="modal-row"><span>New start</span><span class="new-val">${fmtDate(ns)}</span></div>
+    <div class="modal-row"><span>Old end</span><span>${fmtDate(task.end)}</span></div>
+    <div class="modal-row"><span>New end</span><span class="new-val">${fmtDate(ne)}</span></div>`;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function cancelSave(){pending=null;document.getElementById('modalOverlay').classList.remove('show');render()}
+function confirmSave(){
+  if(!pending)return;
+  const t=tasks.find(x=>x.id===pending.task.id);
+  if(t){t.start=pending.newStart;t.end=pending.newEnd}
+  postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:t.progress,pm:t.pm,groupKey:t.groupKey}});
+  pending=null;document.getElementById('modalOverlay').classList.remove('show');
+  toast('✓ Saved — Power Apps notified');render();
+}
+
+/* ── Edit Task Modal ── */
+let editingTask = null;
+
+function openEditModal(task) {
+  editingTask = task;
+  document.getElementById('editIdBadge').textContent = task.id;
+  document.getElementById('editRoadLabel').textContent = task.road;
+  document.getElementById('editStart').value = task.start || '';
+  document.getElementById('editEnd').value = (task.endDisplay !== undefined ? task.endDisplay : task.end) || '';
+  document.getElementById('editProgress').value = task.progress || 0;
+  const pmParts = (task.pm || '').split(' | ');
+  document.getElementById('editPM').value = pmParts[0] || '';
+  document.getElementById('editTeam').value = pmParts[1] || '';
+  document.getElementById('editOverlay').classList.add('show');
+}
+
+function closeEditModal() {
+  editingTask = null;
+  document.getElementById('editOverlay').classList.remove('show');
+}
+
+function saveEditModal() {
+  if (!editingTask) return;
+  const t = tasks.find(x => x.id === editingTask.id);
+  if (!t) return;
+  const newStart    = document.getElementById('editStart').value;
+  const newEnd      = document.getElementById('editEnd').value;
+  const newProgress = parseInt(document.getElementById('editProgress').value) || 0;
+  const newPM       = document.getElementById('editPM').value;
+  const newTeam     = document.getElementById('editTeam').value;
+  t.start      = newStart;
+  t.end        = newEnd || newStart;
+  t.endDisplay = newEnd;
+  t.progress   = newProgress;
+  t.pm         = newPM + (newTeam ? ' | ' + newTeam : '');
+  t.status     = newProgress === 100 ? 'closed' : 'open';
+  postUp({
+    type: 'TASK_UPDATED',
+    task: { id: t.id, road: t.road, start: newStart, end: newEnd,
+            progress: newProgress, pm: newPM, team: newTeam, groupKey: t.groupKey }
+  });
+  closeEditModal();
+  toast('✓ Saved — Power Apps notified');
+  render();
+}
+
+/* Close edit modal when clicking outside */
+window.addEventListener('click', function(e) {
+  const overlay = document.getElementById('editOverlay');
+  if (e.target === overlay) closeEditModal();
+});
+
+/* toolbar */
+function setScale(s){
+  scale=s;
+  document.querySelectorAll('#scaleSeg button').forEach(b=>b.classList.toggle('active',b.textContent===s));render();
+}
+function setView(v){
+  viewMode=v;
+  document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('active',b.textContent===v));render();
+}
+function applyFilters(){render()}
+
+function clearFilters(){
+  document.getElementById('fGroup').value='';
+  document.getElementById('fId').value='';
+  document.getElementById('fRoad').value='';
+  document.getElementById('fPM').value='';
+  document.getElementById('fTeam').value='';
+  document.getElementById('fProg').value='';
+  document.getElementById('fDateFrom').value='';
+  document.getElementById('fSearch').value='';
+  document.getElementById('fHasDate').checked=true;
+  render();
+}
+
+/* dropdowns */
+function populateDropdowns(){
+  const ng=tasks.filter(t=>!t.group);
+  const pmSel=document.getElementById('fPM'),teamSel=document.getElementById('fTeam'),roadSel=document.getElementById('fRoad'),idSel=document.getElementById('fId');
+  while(pmSel.options.length>1)pmSel.remove(1);
+  while(teamSel.options.length>1)teamSel.remove(1);
+  while(roadSel.options.length>1)roadSel.remove(1);
+  while(idSel.options.length>1)idSel.remove(1);
+  /* Extract PM (before |) and Team (after |) separately */
+  const pms=new Set(), teams=new Set();
+  ng.forEach(t=>{
+    if(!t.pm)return;
+    const parts=t.pm.split(' | ');
+    if(parts[0]&&parts[0].trim())pms.add(parts[0].trim());
+    if(parts[1]&&parts[1].trim())teams.add(parts[1].trim());
+  });
+  [...pms].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;pmSel.appendChild(o)});
+  [...teams].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;teamSel.appendChild(o)});
+  [...new Set(ng.map(t=>t.road))].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;roadSel.appendChild(o)});
+  [...new Set(ng.map(t=>t.id))].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;idSel.appendChild(o)});
+}
+
+/* Power Apps message listener */
+window.addEventListener('message',e=>{
+  let msg;try{msg=typeof e.data==='string'?JSON.parse(e.data):e.data}catch{return}
+  if(!msg||!msg.type)return;
+  switch(msg.type){
+    case'LOAD_DATA':
+      if(Array.isArray(msg.tasks)&&msg.tasks.length){
+        tasks=msg.tasks;isConnected=true;
+        document.getElementById('statusDot').classList.add('connected');
+        document.getElementById('connLabel').textContent='Dataverse ('+tasks.filter(t=>!t.group).length+' tasks)';
+        populateDropdowns();render();
+      }break;
+    case'SET_FILTER':
+      if(msg.filter){
+        if(msg.filter.group!==undefined)document.getElementById('fGroup').value=msg.filter.group;
+        if(msg.filter.pm!==undefined)document.getElementById('fPM').value=msg.filter.pm;
+        if(msg.filter.road!==undefined)document.getElementById('fRoad').value=msg.filter.road;
+        if(msg.filter.id!==undefined)document.getElementById('fId').value=msg.filter.id;
+        if(msg.filter.progress!==undefined)document.getElementById('fProg').value=msg.filter.progress;
+        if(msg.filter.dateFrom!==undefined)document.getElementById('fDateFrom').value=msg.filter.dateFrom;
+        if(msg.filter.dateTo!==undefined)document.getElementById('fDateTo').value=msg.filter.dateTo;
+        if(msg.filter.search!==undefined)document.getElementById('fSearch').value=msg.filter.search;
+        if(msg.filter.view!==undefined)setView(msg.filter.view);
+        if(msg.filter.scale!==undefined)setScale(msg.filter.scale);
+        applyFilters();
+      }break;
+    case'SET_SCALE':if(msg.scale)setScale(msg.scale);break;
+    case'SET_VIEW':if(msg.view)setView(msg.view);break;
+    case'REFRESH':render();break;
+  }
+});
+
+/* init */
+document.getElementById('connLabel').textContent = 'Connecting…';
+populateDropdowns();
+render();
+postUp({type:'READY'});
+
+/* Load data from URL hash — Power Apps passes data this way */
+function loadFromHash(){
+  try{
+    const hash=window.location.hash;
+    if(!hash||hash.length<2)return false;
+    const decoded=decodeURIComponent(hash.substring(1));
+    const parsed=JSON.parse(decoded);
+    if(!Array.isArray(parsed)||!parsed.length)return false;
+
+    /* Build group rows from parsed tasks */
+    const seen={};const groupKeys=[];
+    parsed.forEach(t=>{const k=(t.groupKey||'').trim();if(k&&!seen[k]){seen[k]=true;groupKeys.push(k);}});
+    const groupRows=groupKeys.map(gk=>{
+      const ch=parsed.filter(t=>(t.groupKey||'').trim()===gk);
+      const starts=ch.filter(t=>t.start).map(t=>parseDate(t.start)).filter(Boolean);
+      const ends=ch.filter(t=>t.end).map(t=>parseDate(t.end)).filter(Boolean);
+      const progs=ch.map(t=>Number(t.progress));
+      const minStart=starts.length?new Date(Math.min(...starts)):new Date();
+      const maxEnd=ends.length?new Date(Math.max(...ends)):new Date();
+      const avgProg=progs.length?Math.round(progs.reduce((a,b)=>a+b,0)/progs.length):0;
+      return{id:gk,road:gk,group:true,groupKey:gk,start:minStart.toISOString().split('T')[0],
+        end:maxEnd.toISOString().split('T')[0],progress:avgProg,pm:gk,status:'open'};
+    });
+
+    tasks=[...groupRows,...parsed];
+    isConnected=true;
+    document.getElementById('statusDot').classList.add('connected');
+    document.getElementById('connLabel').textContent='Dataverse ('+parsed.length+' tasks)';
+    populateDropdowns();render();
+    return true;
+  }catch(e){console.error('Hash load error:',e);return false;}
+}
+
+/* Try loading from hash on startup */
+loadFromHash();
+
+/* Also reload when hash changes (Power Apps updates src) */
+window.addEventListener('hashchange',loadFromHash);
+
+
+</script>
+
+</body>
+</html>
