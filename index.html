@@ -183,8 +183,8 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
 #emptyState{display:none;flex-direction:column;align-items:center;justify-content:center;height:180px;color:var(--gray-400);gap:8px}
 #emptyState p{font-size:13px}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -1244,123 +1244,224 @@ async function exportPDF(){
   btn.style.pointerEvents='none'; btn.style.opacity='0.7';
 
   try {
-    const leftPane  = document.getElementById('leftPane');
-    const rightPane = document.getElementById('rightPane');
-    const leftHead  = document.getElementById('leftHead');
-    const rightHead = document.getElementById('rightHead');
-    const leftBody  = document.getElementById('leftBody');
-    const rightBody = document.getElementById('rightBody');
-    const leftTable = document.getElementById('leftTable');
-    const ganttTable= document.getElementById('ganttTable');
-    const chartHeadTable = document.getElementById('chartHeadTable');
-    const wrap      = document.getElementById('ganttWrap');
-    const toolbar   = document.getElementById('toolbar');
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a3'});
+    const PW=pdf.internal.pageSize.getWidth();   /* 420mm */
+    const PH=pdf.internal.pageSize.getHeight();  /* 297mm */
+    const MAR=8; /* margin mm */
 
-    /* ── Measure full content sizes before expanding ── */
-    const leftW  = leftTable  ? leftTable.scrollWidth  + 2 : leftPane.scrollWidth;
-    const rightW = ganttTable ? ganttTable.scrollWidth + 2 : rightPane.scrollWidth;
-    const bodyH  = Math.max(leftBody.scrollHeight, rightBody.scrollHeight);
-    const headH  = Math.max(leftHead.scrollHeight, rightHead.scrollHeight);
-    const toolH  = toolbar ? toolbar.offsetHeight : 0;
-    const totalW = leftW + rightW;
-    const totalH = toolH + headH + bodyH + 4;
-
-    /* ── Expand everything to full content size ── */
-    const prev = {
-      leftW: leftPane.style.width,       leftMax: leftPane.style.maxWidth,
-      rightFlex: rightPane.style.flex,   rightW: rightPane.style.width,
-      wrapH: wrap.style.height,          wrapOv: wrap.style.overflow,
-      wrapDisplay: wrap.style.display,
-      leftBodyH: leftBody.style.height,  leftBodyOv: leftBody.style.overflow,
-      rightBodyH: rightBody.style.height,rightBodyOv: rightBody.style.overflow,
-      leftHeadOv: leftHead.style.overflow, rightHeadOv: rightHead.style.overflow,
-      chartTableW: chartHeadTable ? chartHeadTable.style.width : '',
+    /* ── Colours ── */
+    const GROUP_COLORS={
+      IRW:{bar:[45,78,138], bg:[238,242,250], text:[29,52,107]},
+      EW: {bar:[107,63,160],bg:[240,236,251], text:[74,44,120]},
+      EPAR:{bar:[46,122,74], bg:[235,245,238], text:[27,90,50]},
     };
+    function gc(groupKey){
+      const k=(groupKey||'').toUpperCase();
+      for(const g of Object.keys(GROUP_COLORS)) if(k.includes(g)) return GROUP_COLORS[g];
+      return{bar:[80,80,80],bg:[245,245,245],text:[40,40,40]};
+    }
 
-    leftPane.style.width    = leftW + 'px';
-    leftPane.style.maxWidth = 'none';
-    rightPane.style.flex    = 'none';
-    rightPane.style.width   = rightW + 'px';
-    wrap.style.height       = 'auto';
-    wrap.style.overflow     = 'visible';
-    wrap.style.display      = 'flex';
-    leftBody.style.height   = bodyH + 'px';
-    leftBody.style.overflow = 'visible';
-    rightBody.style.height  = bodyH + 'px';
-    rightBody.style.overflow= 'visible';
-    leftHead.style.overflow = 'visible';
-    rightHead.style.overflow= 'visible';
-    if (chartHeadTable) chartHeadTable.style.width = rightW + 'px';
+    /* ── Get visible filtered tasks ── */
+    const filtered=getFiltered();
+    const groupFirst=[];
+    const childRows=filtered.filter(t=>!t.group);
+    tasks.filter(t=>t.group).forEach(g=>{
+      const grpFilter=document.getElementById('fGroup').value;
+      if(grpFilter&&g.id!==grpFilter)return;
+      groupFirst.push(g);
+      childRows.filter(t=>t.groupKey===g.id&&!collapsed[g.id]).forEach(t=>groupFirst.push(t));
+    });
+    const rows=groupFirst.filter(t=>t.start||t.group);
 
-    /* Let browser reflow */
-    await new Promise(r => setTimeout(r, 350));
+    /* ── Timeline range ── */
+    const range=getRange();
+    const tw=totalW(range);
+    const CHART_X=MAR; /* chart starts at left margin after left panel */
 
-    /* ── Capture left and right panes separately then stitch ── */
-    const SCALE = 1.8;
+    /* ── LEFT PANEL: autoTable ── */
+    const colWidths=[18,30,12,22,18,16,16,16,12,10,14]; /* mm each */
+    const leftPanelW=colWidths.reduce((a,b)=>a+b,0);
+    const CHART_START_X=MAR+leftPanelW+3;
+    const CHART_W=PW-CHART_START_X-MAR;
 
-    const [canvasLeft, canvasRight] = await Promise.all([
-      html2canvas(leftPane,  { scale: SCALE, useCORS: true, allowTaint: true, scrollX: 0, scrollY: 0, width: leftW,  height: totalH, windowWidth: totalW, windowHeight: totalH }),
-      html2canvas(rightPane, { scale: SCALE, useCORS: true, allowTaint: true, scrollX: 0, scrollY: 0, width: rightW, height: totalH, windowWidth: totalW, windowHeight: totalH }),
-    ]);
+    /* Header row */
+    const HEAD=['Recovery No.','Road / Assets','PM','Construction Team','Dependency','Est. Cost','Start','End','Duration','Mile','Progress'];
 
-    /* Stitch side by side */
-    const stitched = document.createElement('canvas');
-    stitched.width  = canvasLeft.width + canvasRight.width;
-    stitched.height = Math.max(canvasLeft.height, canvasRight.height);
-    const ctx = stitched.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, stitched.width, stitched.height);
-    ctx.drawImage(canvasLeft,  0, 0);
-    ctx.drawImage(canvasRight, canvasLeft.width, 0);
+    const tableBody=rows.map(t=>{
+      if(t.group) return HEAD.map((_,i)=>i===0?t.id:i===6?fmtDate(t.start):i===7?fmtDate(t.end):i===10?t.progress+'%':'');
+      return[
+        t.id,
+        (t.road||'').substring(0,22),
+        (t.pm||'').split(' | ')[0]||'',
+        (t.pm||'').split(' | ')[1]||'',
+        (t.predecessor||'').substring(0,12)||'None',
+        t.estimatedCost?'$'+Number(t.estimatedCost).toLocaleString():'',
+        fmtDate(t.start)||'',
+        fmtDate(t.end)||'',
+        durLabel(t.start,t.end),
+        t.milestone?'Yes':'No',
+        (t.progress||0)+'%',
+      ];
+    });
 
-    /* ── Restore DOM ── */
-    leftPane.style.width    = prev.leftW;
-    leftPane.style.maxWidth = prev.leftMax;
-    rightPane.style.flex    = prev.rightFlex || '1';
-    rightPane.style.width   = prev.rightW;
-    wrap.style.height       = prev.wrapH;
-    wrap.style.overflow     = prev.wrapOv;
-    wrap.style.display      = prev.wrapDisplay;
-    leftBody.style.height   = prev.leftBodyH;
-    leftBody.style.overflow = prev.leftBodyOv;
-    rightBody.style.height  = prev.rightBodyH;
-    rightBody.style.overflow= prev.rightBodyOv;
-    leftHead.style.overflow = prev.leftHeadOv;
-    rightHead.style.overflow= prev.rightHeadOv;
-    if (chartHeadTable) chartHeadTable.style.width = prev.chartTableW;
+    pdf.autoTable({
+      startY:MAR+6,
+      margin:{left:MAR,right:PW-MAR-leftPanelW},
+      head:[HEAD],
+      body:tableBody,
+      styles:{fontSize:5.5,cellPadding:1.2,overflow:'ellipsize',valign:'middle',lineWidth:0.1},
+      headStyles:{fillColor:[50,50,50],textColor:255,fontSize:5.5,fontStyle:'bold',cellPadding:1.2},
+      columnStyles:Object.fromEntries(colWidths.map((w,i)=>([i,{cellWidth:w}]))),
+      didParseCell:(data)=>{
+        const rowIdx=data.row.index;
+        if(data.section==='body'&&rows[rowIdx]&&rows[rowIdx].group){
+          const c=gc(rows[rowIdx].id);
+          data.cell.styles.fillColor=c.bg;
+          data.cell.styles.textColor=c.text;
+          data.cell.styles.fontStyle='bold';
+        }
+      },
+      rowPageBreak:'avoid',
+    });
 
-    /* ── Build PDF — fit entire stitched canvas to A3 landscape ── */
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
-    const pageW = pdf.internal.pageSize.getWidth();   /* 420mm */
-    const pageH = pdf.internal.pageSize.getHeight();  /* 297mm */
+    /* ── GANTT BARS: drawn to the right of the table ── */
+    const ROW_H=4.5; /* mm per row */
+    const HEAD_H=7;  /* header band height mm */
+    const tableStartY=MAR+6;
 
-    const imgW = stitched.width;
-    const imgH = stitched.height;
+    /* Month/week header */
+    pdf.setFillColor(50,50,50);
+    pdf.rect(CHART_START_X, tableStartY, CHART_W, 4, 'F');
+    pdf.setTextColor(255,255,255);
+    pdf.setFontSize(5);
 
-    /* Scale to fit width; if still too tall, scale to fit height */
-    const ratio = Math.min(pageW / imgW, pageH / imgH);
-    const fitW  = imgW * ratio;
-    const fitH  = imgH * ratio;
+    /* Draw month labels */
+    const months=[];
+    let cur=new Date(range.start);
+    while(cur<=range.end){
+      months.push(new Date(cur));
+      cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+    }
+    months.forEach(m=>{
+      const x=CHART_START_X+(xFor(m.toISOString().split('T')[0],range.start)/tw)*CHART_W;
+      pdf.text(m.toLocaleDateString('en-AU',{month:'short',year:'2-digit'}),x+0.5,tableStartY+2.8);
+    });
 
-    /* Centre vertically */
-    const yOff  = (pageH - fitH) / 2;
+    /* Week tick labels */
+    pdf.setFillColor(60,60,60);
+    pdf.rect(CHART_START_X, tableStartY+4, CHART_W, 3, 'F');
+    pdf.setFontSize(4);
+    if(scale==='Weeks'){
+      let d=new Date(range.start);
+      let wn=1;
+      while(d<=range.end){
+        const x=CHART_START_X+(xFor(d.toISOString().split('T')[0],range.start)/tw)*CHART_W;
+        pdf.text('W'+wn,x+0.3,tableStartY+6.3);
+        d=new Date(d.getTime()+7*86400000);
+        wn=wn%4+1;
+      }
+    }
 
-    const imgData = stitched.toDataURL('image/jpeg', 0.92);
-    pdf.addImage(imgData, 'JPEG', 0, yOff, fitW, fitH);
+    /* Today line */
+    const todayX=CHART_START_X+(xFor(TODAY.toISOString().split('T')[0],range.start)/tw)*CHART_W;
+    pdf.setDrawColor(220,50,50);
+    pdf.setLineWidth(0.3);
+    pdf.line(todayX,tableStartY,todayX,tableStartY+HEAD_H+rows.length*ROW_H);
 
-    const dateStr = new Date().toISOString().split('T')[0];
-    const label   = (document.getElementById('connLabel').textContent || 'Gantt')
-                      .replace(/[^a-zA-Z0-9]/g, '_');
-    pdf.save('GanttChart_' + label + '_' + dateStr + '.pdf');
+    /* Grid lines + bars */
+    rows.forEach((t,i)=>{
+      const y=tableStartY+HEAD_H+i*ROW_H;
+      const c=gc(t.groupKey||t.id);
 
-  } catch(err) {
-    console.error('PDF export error:', err);
-    alert('PDF export failed: ' + err.message);
+      /* Row background for groups */
+      if(t.group){
+        pdf.setFillColor(...c.bg);
+        pdf.rect(CHART_START_X,y,CHART_W,ROW_H,'F');
+      }
+
+      /* Alternating subtle grid */
+      pdf.setDrawColor(220,220,220);
+      pdf.setLineWidth(0.05);
+      pdf.line(CHART_START_X,y+ROW_H,CHART_START_X+CHART_W,y+ROW_H);
+
+      if(!t.start)return;
+
+      const xPct=xFor(t.start,range.start)/tw;
+      const xEndPct=xFor(t.end||t.start,range.start)/tw;
+      const bx=CHART_START_X+xPct*CHART_W;
+      const bw=Math.max((xEndPct-xPct)*CHART_W,1);
+      const by=y+0.7;
+      const bh=ROW_H-1.4;
+
+      if(t.milestone){
+        /* Diamond */
+        pdf.setFillColor(...c.bar);
+        const cx=bx,cy=by+bh/2,sz=1.8;
+        pdf.triangle(cx,cy-sz,cx+sz,cy,cx,cy+sz,'F');
+        pdf.triangle(cx,cy-sz,cx-sz,cy,cx,cy+sz,'F');
+      } else if(t.group){
+        /* Group bar */
+        pdf.setFillColor(...c.bar.map(v=>Math.max(0,v-40)));
+        pdf.roundedRect(bx,by,bw,bh,0.5,0.5,'F');
+        /* Progress fill */
+        const pw2=bw*(t.progress/100);
+        pdf.setFillColor(...c.bar);
+        pdf.roundedRect(bx,by,pw2,bh,0.5,0.5,'F');
+      } else {
+        /* Task bar background */
+        pdf.setFillColor(200,200,220);
+        pdf.roundedRect(bx,by,bw,bh,0.4,0.4,'F');
+        /* Progress fill */
+        const pw2=bw*(t.progress/100);
+        if(pw2>0){
+          pdf.setFillColor(...c.bar);
+          pdf.roundedRect(bx,by,pw2,bh,0.4,0.4,'F');
+        }
+        /* Progress label inside bar */
+        if(t.progress>0&&bw>6){
+          pdf.setTextColor(255,255,255);
+          pdf.setFontSize(3.5);
+          pdf.text(t.progress+'%',bx+1,by+bh-0.8);
+        }
+      }
+    });
+
+    /* Vertical month grid lines */
+    months.forEach(m=>{
+      const x=CHART_START_X+(xFor(m.toISOString().split('T')[0],range.start)/tw)*CHART_W;
+      pdf.setDrawColor(200,200,200);
+      pdf.setLineWidth(0.1);
+      pdf.line(x,tableStartY,x,tableStartY+HEAD_H+rows.length*ROW_H);
+    });
+
+    /* Border around chart area */
+    pdf.setDrawColor(150,150,150);
+    pdf.setLineWidth(0.2);
+    pdf.rect(CHART_START_X,tableStartY,CHART_W,HEAD_H+rows.length*ROW_H);
+
+    /* Title */
+    pdf.setTextColor(30,30,30);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica','bold');
+    pdf.text('Gantt Chart — DRFA Programme',MAR,MAR+3);
+    pdf.setFont('helvetica','normal');
+    pdf.setFontSize(7);
+    pdf.setTextColor(100,100,100);
+    const label=document.getElementById('connLabel').textContent||'';
+    pdf.text(label+' | Exported '+new Date().toLocaleDateString('en-AU'),MAR,MAR+7);
+
+    /* Save */
+    const dateStr=new Date().toISOString().split('T')[0];
+    pdf.save('GanttChart_'+dateStr+'.pdf');
+
+  } catch(err){
+    console.error('PDF export error:',err);
+    alert('PDF export failed: '+err.message);
   } finally {
-    btn.innerHTML = origHTML;
-    btn.style.pointerEvents = '';
-    btn.style.opacity = '';
+    btn.innerHTML=origHTML;
+    btn.style.pointerEvents='';
+    btn.style.opacity='';
   }
 }
 
