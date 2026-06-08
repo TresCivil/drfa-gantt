@@ -39,16 +39,37 @@ input[type=search]{width:110px}
 .leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--gray-600)}
 .leg-dot{width:10px;height:10px;border-radius:2px}
 
-/* gantt wrap — dual pane */
+/* ── Print / PDF styles ── */
+@media print {
+  @page { size: A3 landscape; margin: 6mm; }
+  body,html { overflow: visible !important; width: auto !important; }
+  #toolbar { display: none !important; }
+  #app { display: block !important; height: auto !important; overflow: visible !important; width: auto !important; }
+  #ganttWrap { display: flex !important; flex-direction: row !important; overflow: visible !important; height: auto !important; width: auto !important; align-items: flex-start !important; }
+  #splitPeg { display: none !important; }
+  #leftPane { overflow: visible !important; height: auto !important; max-width: none !important; flex-shrink: 0 !important; border-right: 1px solid #ccc !important; }
+  #rightPane { overflow: visible !important; height: auto !important; }
+  #leftPane .pane-head, #rightPane .pane-head { overflow: visible !important; position: static !important; }
+  #leftPane .pane-body, #rightPane .pane-body { overflow: visible !important; height: auto !important; min-height: 0 !important; }
+  #leftPane table, #rightPane table, #chartHeadTable { table-layout: auto !important; }
+  #leftPane thead th, #rightPane thead th { position: static !important; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .gantt-bar, .group-bar, .bar-progress, .bar-pct, .milestone-diamond, .today-line { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  tr.group-irw td { background: #eef2fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  tr.group-ew  td { background: #f0ecfb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  tr.group-epar td { background: #ebf5ee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #emptyState { display: none !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 #ganttWrap{flex:1;display:flex;overflow:hidden;position:relative}
 #leftPane{display:flex;flex-direction:column;overflow:hidden;border-right:3px solid var(--border-md);flex-shrink:0;width:55%;max-width:75%;min-width:180px}
 #rightPane{display:flex;flex-direction:column;flex:1;overflow:hidden}
 #leftPane .pane-head,#rightPane .pane-head{flex-shrink:0;overflow:hidden;background:var(--gray-50)}
-#leftPane .pane-body,#rightPane .pane-body{flex:1;overflow:auto;min-height:0}
+#leftPane .pane-body,#rightPane .pane-body{flex:1;overflow:auto;min-height:0;position:relative}
 #leftPane table,#rightPane table{border-collapse:collapse;table-layout:fixed}
 #leftPane thead th,#rightPane thead th{position:sticky;top:0;z-index:20;background:var(--gray-50);border-bottom:1px solid var(--border-md);font-size:11px;font-weight:600;color:var(--gray-600);padding:0 8px;height:26px;white-space:nowrap;text-align:left;text-transform:uppercase;letter-spacing:.03em}
-#leftPane tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:30px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#rightPane tbody td{padding:0;border-bottom:1px solid var(--border);height:30px;vertical-align:top}
+#leftPane tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:34px;max-height:34px;line-height:30px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
+#rightPane tbody td{padding:0;border-bottom:1px solid var(--border);height:34px;max-height:34px;vertical-align:top;box-sizing:border-box}
+#leftPane tbody tr,#rightPane tbody tr{height:34px;max-height:34px}
 #leftPane tbody tr:hover td,#rightPane tbody tr:hover td{background:#f4f6fb}
 /* split peg */
 #splitPeg{width:6px;flex-shrink:0;cursor:col-resize;background:var(--gray-200);position:relative;z-index:50;transition:background .15s;display:flex;align-items:center;justify-content:center}
@@ -61,7 +82,7 @@ thead th{position:sticky;top:0;z-index:20;background:var(--gray-50);border-botto
 thead th.th-chart{padding:0;background:var(--gray-50)}
 tbody tr{transition:background .07s}
 tbody tr:hover td{background:#f4f6fb}
-tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:30px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:34px;box-sizing:border-box;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* group rows */
 tr.group-row td{font-weight:700;border-bottom:1px solid var(--border-md)}
@@ -75,7 +96,7 @@ tr.group-epar:hover td{background:#dff0e6}
 .expand-btn{cursor:pointer;font-size:10px;margin-right:4px;user-select:none;color:var(--gray-400)}
 
 /* column widths */
-.w-id{width:100px}.w-road{width:130px}.w-pm-col{width:90px}.w-team-col{width:110px}.w-date{width:100px}.w-start{width:100px}.w-end{width:100px}.w-dur{width:62px;text-align:center}.w-prog{width:90px}.w-cost{width:90px}.w-dep{width:110px}.w-mile{width:70px;text-align:center}.w-pm{width:0;padding:0;overflow:hidden}
+.w-id{width:100px}.w-road{width:130px}.w-pm-col{width:90px}.w-team-col{width:110px}.w-date{width:110px}.w-start{width:115px}.w-end{width:115px}.w-dur{width:62px;text-align:center}.w-prog{width:90px}.w-cost{width:90px}.w-dep{width:110px}.w-mile{width:70px;text-align:center}.w-pm{width:0;padding:0;overflow:hidden}
 
 /* inline editable cells */
 .cell-edit{width:100%;height:100%;box-sizing:border-box;font-family:inherit;font-size:12px;border:none;outline:none;background:transparent;cursor:text;padding:0;color:inherit}
@@ -101,7 +122,7 @@ td.editable:hover{background:#f0ecfb !important}
 
 /* chart cells */
 td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
-.chart-row-cell{position:relative;height:30px;overflow:visible}
+.chart-row-cell{position:relative;height:34px;max-height:34px;overflow:visible;box-sizing:border-box}
 .today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:8;pointer-events:none;opacity:.65}
 .today-badge{position:absolute;top:1px;transform:translateX(-50%);background:var(--red);color:#fff;font-size:9px;font-weight:600;padding:1px 4px;border-radius:3px;white-space:nowrap;z-index:9;pointer-events:none}
 
@@ -204,7 +225,7 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
     <option value="low">&lt; 40%</option>
   </select>
   <span class="tb-label">Start From</span>
-  <input type="text" id="fDateFrom" placeholder="dd/mm/yyyy" oninput="applyFilters()" style="font-family:inherit;font-size:12px;height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:#fff;color:var(--gray-800);outline:none;width:100px">
+  <input type="date" id="fDateFrom" onchange="applyFilters()" style="font-family:inherit;font-size:12px;height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:#fff;color:var(--gray-800);outline:none;width:130px;cursor:pointer">
   <input type="search" id="fSearch" placeholder="Search…" oninput="applyFilters()">
   <div class="tb-sep"></div>
   <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--gray-600)">
@@ -222,7 +243,7 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
   <div class="status-dot" id="statusDot"></div>
   <span id="connLabel">Demo data</span>
   <div class="tb-sep"></div>
-  <button id="pdfBtn" onclick="exportPDF()" style="font-family:inherit;font-size:12px;height:26px;padding:0 11px;border:1px solid #4a2d7a;border-radius:var(--radius);background:#4a2d7a;color:#fff;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;font-weight:500" onmouseover="this.style.background='#3a2060'" onmouseout="this.style.background='#4a2d7a'">
+  <button id="pdfBtn" onclick="exportPDF()" style="font-family:inherit;font-size:12px;height:26px;padding:0 11px;border:1px solid var(--gray-800);border-radius:var(--radius);background:var(--gray-800);color:#fff;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;font-weight:500" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,18 15,15"/></svg>
     Export PDF
   </button>
@@ -512,7 +533,7 @@ function getFiltered(){
   const q=(document.getElementById('fSearch').value||'').toLowerCase().trim();
   const hasDateOnly = document.getElementById('fHasDate') ? document.getElementById('fHasDate').checked : true;
   const dateFromEl=document.getElementById('fDateFrom');
-  const dateFrom=dateFromEl&&dateFromEl.value?parseDate(parseDMY(dateFromEl.value)):null;
+  const dateFrom=dateFromEl&&dateFromEl.value?parseDate(dateFromEl.value):null;
   return tasks.filter(t=>{
     if(t.group)return false; /* group visibility handled in render based on children */
     if(hasDateOnly && !t.start && !t.hasStartDate)return false;
@@ -771,47 +792,43 @@ function render(){
     }
     /* tdCost -> leftTr */
 
-    /* Start — inline editable date dd/mm/yyyy */
+    /* Start — date picker */
     const tdS=document.createElement('td');tdS.className='w-start editable';
     if(t.group){
       tdS.textContent=fmtDate(t.start);tdS.style.color=gc.bar;tdS.style.fontWeight='700';
     } else {
       const inStart=document.createElement('input');
-      inStart.className='cell-edit';inStart.type='text';
-      inStart.placeholder='dd/mm/yyyy';
-      inStart.value=t.start?fmtDate(toDateStr(t.start)):'';
-      inStart.style.width='90px';
+      inStart.className='cell-edit';inStart.type='date';
+      inStart.value=t.start?toDateStr(t.start):'';
+      inStart.style.width='110px';inStart.style.fontSize='11px';inStart.style.cursor='pointer';
       inStart.onclick=e=>e.stopPropagation();
-      inStart.onblur=()=>{
-        const iso=parseDMY(inStart.value);
-        if(!iso&&inStart.value){inStart.value=t.start?fmtDate(toDateStr(t.start)):'';return;}
-        if(iso){t.start=iso;t.status=t.progress===100?'closed':'open';
-          postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:t.progress,pm:t.pm,groupKey:t.groupKey}});
-          toast('✓ Start date updated');render();}
+      inStart.onchange=()=>{
+        if(!inStart.value)return;
+        t.start=inStart.value;t.status=t.progress===100?'closed':'open';
+        postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:t.progress,pm:t.pm,groupKey:t.groupKey}});
+        toast('✓ Start date updated');render();
       };
       if(!t.start)tdS.style.background='#fce8e8';
       tdS.appendChild(inStart);
     }
     /* tdS -> leftTr */
 
-    /* End — inline editable date dd/mm/yyyy */
+    /* End — date picker */
     const tdE=document.createElement('td');tdE.className='w-end editable';
     if(t.group){
       tdE.textContent=fmtDate(t.end);tdE.style.color=gc.bar;tdE.style.fontWeight='700';
     } else {
       const hasEnd=t.hasEndDate===true?true:t.hasEndDate===false?false:(!!t.end&&t.end!==''&&t.end!==t.start);
       const inEnd=document.createElement('input');
-      inEnd.className='cell-edit';inEnd.type='text';
-      inEnd.placeholder='dd/mm/yyyy';
-      inEnd.value=hasEnd?fmtDate(toDateStr(t.end)):'';
-      inEnd.style.width='90px';
+      inEnd.className='cell-edit';inEnd.type='date';
+      inEnd.value=hasEnd&&t.end?toDateStr(t.end):'';
+      inEnd.style.width='110px';inEnd.style.fontSize='11px';inEnd.style.cursor='pointer';
       inEnd.onclick=e=>e.stopPropagation();
-      inEnd.onblur=()=>{
-        const iso=parseDMY(inEnd.value);
-        if(!iso&&inEnd.value){inEnd.value=t.end?fmtDate(toDateStr(t.end)):'';return;}
-        if(iso){t.end=iso;t.hasEndDate=true;t.status=t.progress===100?'closed':'open';
-          postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:t.progress,pm:t.pm,groupKey:t.groupKey}});
-          toast('✓ End date updated');render();}
+      inEnd.onchange=()=>{
+        if(!inEnd.value)return;
+        t.end=inEnd.value;t.hasEndDate=true;t.status=t.progress===100?'closed':'open';
+        postUp({type:'TASK_UPDATED',task:{id:t.id,guid:t.guid,road:t.road,start:t.start,end:t.end,progress:t.progress,pm:t.pm,groupKey:t.groupKey}});
+        toast('✓ End date updated');render();
       };
       if(!hasEnd||!t.start)tdE.style.background='#fce8e8';
       tdE.appendChild(inEnd);
@@ -948,38 +965,58 @@ function render(){
   });
 
   document.getElementById('emptyState').style.display=rowCount===0?'flex':'none';
+  syncRowHeights();
 
   /* ── Draw dependency connector lines after DOM is built ── */
   requestAnimationFrame(()=>{
     /* remove old SVG overlays */
     document.querySelectorAll('.dep-svg').forEach(s=>s.remove());
 
-    const ROW_H=30;
     const taskMap=Object.fromEntries(tasks.map(t=>[t.id,t]));
     const connectors=[];
+
+    /* Build actual Y positions from rendered DOM rows in right pane */
+    const rightBodyEl=document.getElementById('rightBody');
+    const ganttRows=document.querySelectorAll('#ganttBody tr');
+    const rightBodyTop=rightBodyEl?rightBodyEl.getBoundingClientRect().top+rightBodyEl.scrollTop:0;
+
+    /* Map taskId -> actual Y centre in the chart body coordinate space */
+    const rowYCenter={};
+    ganttRows.forEach(tr=>{
+      const td=tr.querySelector('.td-chart');
+      if(!td)return;
+      const tid=td.dataset.taskId;
+      if(!tid)return;
+      const rect=tr.getBoundingClientRect();
+      /* Y relative to rightBody scroll container */
+      const yTop=rect.top - rightBodyEl.getBoundingClientRect().top + rightBodyEl.scrollTop;
+      rowYCenter[tid]=yTop + rect.height/2;
+    });
 
     visibleRows.forEach((tid)=>{
       const t=taskMap[tid];
       if(!t||!t.predecessor||t.group)return;
-      /* Support multiple predecessors separated by comma */
       const fromIds=t.predecessor.split(',').map(s=>s.trim()).filter(Boolean);
       fromIds.forEach(fromId=>{
         if(!barPos[fromId]||!barPos[tid])return;
-        const from=barPos[fromId];
-        const to=barPos[tid];
-        if(!from||!to)return;
+        if(rowYCenter[fromId]===undefined||rowYCenter[tid]===undefined)return;
         const col=groupColor(taskMap[tid]||{groupKey:null}).bar;
-        connectors.push({from, to, col, tid, fromId});
+        connectors.push({
+          from:{...barPos[fromId], yCenter:rowYCenter[fromId]},
+          to:  {...barPos[tid],    yCenter:rowYCenter[tid]},
+          col, tid, fromId
+        });
       });
     });
 
-    /* ── Single full-table SVG overlay for all connectors ── */
-    const totalRows=visibleRows.length;
-    const svgTotalH=totalRows*ROW_H;
+    if(!connectors.length)return;
+
+    /* SVG spans full height of right body scroll content */
+    const svgH=rightBodyEl?rightBodyEl.scrollHeight:visibleRows.length*34;
     const ns='http://www.w3.org/2000/svg';
     const svg=document.createElementNS(ns,'svg');
     svg.setAttribute('class','dep-svg');
-    svg.style.cssText=`position:absolute;left:0;top:0;width:${tw}px;height:${svgTotalH}px;pointer-events:none;z-index:4;overflow:visible`;
+    svg.style.cssText=`position:absolute;left:0;top:0;width:${tw}px;height:${svgH}px;pointer-events:none;z-index:4;overflow:visible`;
 
     /* one defs block for all markers */
     const defs=document.createElementNS(ns,'defs');
@@ -994,15 +1031,11 @@ function render(){
     svg.appendChild(defs);
 
     connectors.forEach(c=>{
-      /* absolute Y centers based on row index */
-      const fromY = c.from.rowIdx * ROW_H + ROW_H/2;
-      const toY   = c.to.rowIdx   * ROW_H + ROW_H/2;
-
-      /* start from LEFT edge of predecessor bar, go further left, drop down, arrive at left of dependent bar */
-      const x1 = c.from.xStart;       /* left edge of predecessor bar */
-      const x2 = c.to.xStart;         /* left edge of dependent bar */
-      const vx = Math.min(x1, x2) - 10;  /* vertical channel: 10px left of leftmost bar */
-
+      const fromY = c.from.yCenter;
+      const toY   = c.to.yCenter;
+      const x1 = c.from.xStart;
+      const x2 = c.to.xStart;
+      const vx = Math.min(x1, x2) - 10;
       const path = `M${x1},${fromY} L${vx},${fromY} L${vx},${toY} L${x2},${toY}`;
 
       const mid=`arr-${c.col.replace('#','')}`;
@@ -1015,9 +1048,11 @@ function render(){
       svg.appendChild(line);
     });
 
-    /* attach to first chart cell so it stays in the chart column */
-    const firstChartCell=tbody.querySelector('.chart-row-cell');
-    if(firstChartCell) firstChartCell.appendChild(svg);
+    /* attach SVG to rightBody so position:absolute;top:0 is relative to scroll container */
+    if(rightBodyEl){
+      rightBodyEl.style.position='relative';
+      rightBodyEl.appendChild(svg);
+    }
   });
 }
 
@@ -1201,132 +1236,150 @@ window.addEventListener('message',e=>{
   }
 });
 
-/* ── PDF Export ── */
+/* ── PDF Export via print ── */
 async function exportPDF(){
   const btn=document.getElementById('pdfBtn');
-  const origText=btn.innerHTML;
+  const origHTML=btn.innerHTML;
   btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generating…';
-  btn.style.pointerEvents='none';btn.style.opacity='0.7';
+  btn.style.pointerEvents='none'; btn.style.opacity='0.7';
 
-  try{
-    /* Temporarily expand both panes to full content width so nothing is clipped */
-    const leftPane=document.getElementById('leftPane');
-    const rightPane=document.getElementById('rightPane');
-    const leftBody=document.getElementById('leftBody');
-    const rightBody=document.getElementById('rightBody');
-    const leftHead=document.getElementById('leftHead');
-    const rightHead=document.getElementById('rightHead');
-    const wrap=document.getElementById('ganttWrap');
-    const app=document.getElementById('app');
+  try {
+    const leftPane  = document.getElementById('leftPane');
+    const rightPane = document.getElementById('rightPane');
+    const leftHead  = document.getElementById('leftHead');
+    const rightHead = document.getElementById('rightHead');
+    const leftBody  = document.getElementById('leftBody');
+    const rightBody = document.getElementById('rightBody');
+    const leftTable = document.getElementById('leftTable');
+    const ganttTable= document.getElementById('ganttTable');
+    const chartHeadTable = document.getElementById('chartHeadTable');
+    const wrap      = document.getElementById('ganttWrap');
+    const toolbar   = document.getElementById('toolbar');
 
-    /* Save current styles */
-    const savedStyles={
-      wrapOverflow:wrap.style.overflow,
-      wrapDisplay:wrap.style.display,
-      leftWidth:leftPane.style.width,
-      leftMax:leftPane.style.maxWidth,
-      leftOverflow:leftPane.style.overflow,
-      rightOverflow:rightPane.style.overflow,
-      leftBodyOverflow:leftBody.style.overflow,
-      rightBodyOverflow:rightBody.style.overflow,
-      leftHeadOverflow:leftHead.style.overflow,
-      rightHeadOverflow:rightHead.style.overflow,
-      appHeight:app.style.height,
-      appOverflow:app.style.overflow,
+    /* ── Measure full content sizes before expanding ── */
+    const leftW  = leftTable  ? leftTable.scrollWidth  + 2 : leftPane.scrollWidth;
+    const rightW = ganttTable ? ganttTable.scrollWidth + 2 : rightPane.scrollWidth;
+    const bodyH  = Math.max(leftBody.scrollHeight, rightBody.scrollHeight);
+    const headH  = Math.max(leftHead.scrollHeight, rightHead.scrollHeight);
+    const toolH  = toolbar ? toolbar.offsetHeight : 0;
+    const totalW = leftW + rightW;
+    const totalH = toolH + headH + bodyH + 4;
+
+    /* ── Expand everything to full content size ── */
+    const prev = {
+      leftW: leftPane.style.width,       leftMax: leftPane.style.maxWidth,
+      rightFlex: rightPane.style.flex,   rightW: rightPane.style.width,
+      wrapH: wrap.style.height,          wrapOv: wrap.style.overflow,
+      wrapDisplay: wrap.style.display,
+      leftBodyH: leftBody.style.height,  leftBodyOv: leftBody.style.overflow,
+      rightBodyH: rightBody.style.height,rightBodyOv: rightBody.style.overflow,
+      leftHeadOv: leftHead.style.overflow, rightHeadOv: rightHead.style.overflow,
+      chartTableW: chartHeadTable ? chartHeadTable.style.width : '',
     };
 
-    /* Get full content dimensions */
-    const leftTable=document.getElementById('leftTable');
-    const ganttTable=document.getElementById('ganttTable');
-    const leftW=leftTable?leftTable.scrollWidth:leftPane.scrollWidth;
-    const rightW=ganttTable?ganttTable.scrollWidth:rightPane.scrollWidth;
-    const totalW=leftW+6+rightW; /* 6px for peg */
-    const totalH=Math.max(leftBody.scrollHeight,rightBody.scrollHeight)
-                +leftHead.scrollHeight+document.getElementById('toolbar').offsetHeight+10;
+    leftPane.style.width    = leftW + 'px';
+    leftPane.style.maxWidth = 'none';
+    rightPane.style.flex    = 'none';
+    rightPane.style.width   = rightW + 'px';
+    wrap.style.height       = 'auto';
+    wrap.style.overflow     = 'visible';
+    wrap.style.display      = 'flex';
+    leftBody.style.height   = bodyH + 'px';
+    leftBody.style.overflow = 'visible';
+    rightBody.style.height  = bodyH + 'px';
+    rightBody.style.overflow= 'visible';
+    leftHead.style.overflow = 'visible';
+    rightHead.style.overflow= 'visible';
+    if (chartHeadTable) chartHeadTable.style.width = rightW + 'px';
 
-    /* Expand everything to show full content */
-    wrap.style.overflow='visible';
-    wrap.style.display='block';
-    leftPane.style.width=leftW+'px';
-    leftPane.style.maxWidth='none';
-    leftPane.style.overflow='visible';
-    rightPane.style.overflow='visible';
-    leftBody.style.overflow='visible';
-    rightBody.style.overflow='visible';
-    leftHead.style.overflow='visible';
-    rightHead.style.overflow='visible';
-    app.style.height='auto';
-    app.style.overflow='visible';
+    /* Let browser reflow */
+    await new Promise(r => setTimeout(r, 350));
 
-    /* Wait for reflow */
-    await new Promise(r=>setTimeout(r,300));
+    /* ── Capture left and right panes separately then stitch ── */
+    const SCALE = 1.8;
 
-    /* Capture */
-    const canvas=await html2canvas(app,{
-      scale:1.5,
-      useCORS:true,
-      allowTaint:true,
-      scrollX:0,scrollY:0,
-      width:app.scrollWidth,
-      height:app.scrollHeight,
-      windowWidth:app.scrollWidth,
-      windowHeight:app.scrollHeight,
-    });
+    const [canvasLeft, canvasRight] = await Promise.all([
+      html2canvas(leftPane,  { scale: SCALE, useCORS: true, allowTaint: true, scrollX: 0, scrollY: 0, width: leftW,  height: totalH, windowWidth: totalW, windowHeight: totalH }),
+      html2canvas(rightPane, { scale: SCALE, useCORS: true, allowTaint: true, scrollX: 0, scrollY: 0, width: rightW, height: totalH, windowWidth: totalW, windowHeight: totalH }),
+    ]);
 
-    /* Restore styles */
-    wrap.style.overflow=savedStyles.wrapOverflow;
-    wrap.style.display=savedStyles.wrapDisplay;
-    leftPane.style.width=savedStyles.leftWidth;
-    leftPane.style.maxWidth=savedStyles.leftMax;
-    leftPane.style.overflow=savedStyles.leftOverflow;
-    rightPane.style.overflow=savedStyles.rightOverflow;
-    leftBody.style.overflow=savedStyles.leftBodyOverflow;
-    rightBody.style.overflow=savedStyles.rightBodyOverflow;
-    leftHead.style.overflow=savedStyles.leftHeadOverflow;
-    rightHead.style.overflow=savedStyles.rightHeadOverflow;
-    app.style.height=savedStyles.appHeight;
-    app.style.overflow=savedStyles.appOverflow;
+    /* Stitch side by side */
+    const stitched = document.createElement('canvas');
+    stitched.width  = canvasLeft.width + canvasRight.width;
+    stitched.height = Math.max(canvasLeft.height, canvasRight.height);
+    const ctx = stitched.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, stitched.width, stitched.height);
+    ctx.drawImage(canvasLeft,  0, 0);
+    ctx.drawImage(canvasRight, canvasLeft.width, 0);
 
-    /* Build PDF — landscape A3 for wide charts */
-    const {jsPDF}=window.jspdf;
-    const imgW=canvas.width;
-    const imgH=canvas.height;
-    /* Choose orientation and size to fit content */
-    const pdfW=297; /* A3 landscape width mm */
-    const pdfH=420; /* A3 landscape height mm */
-    const ratio=Math.min(pdfW/imgW, pdfH/imgH);
-    const finalW=imgW*ratio;
-    const finalH=imgH*ratio;
-    const orientation=imgW>imgH?'landscape':'portrait';
-    const pdf=new jsPDF({orientation, unit:'mm', format:'a3'});
-    const pageW=pdf.internal.pageSize.getWidth();
-    const pageH=pdf.internal.pageSize.getHeight();
-    /* If chart is taller than one page, split across pages */
-    const pageImgH=Math.floor(pageH/ratio);
-    let yOffset=0;
-    while(yOffset<imgH){
-      if(yOffset>0) pdf.addPage();
-      const sliceH=Math.min(pageImgH,imgH-yOffset);
-      const sliceCanvas=document.createElement('canvas');
-      sliceCanvas.width=imgW;sliceCanvas.height=sliceH;
-      const ctx=sliceCanvas.getContext('2d');
-      ctx.drawImage(canvas,0,-yOffset);
-      const sliceData=sliceCanvas.toDataURL('image/jpeg',0.92);
-      pdf.addImage(sliceData,'JPEG',0,0,pageW,sliceH*ratio);
-      yOffset+=pageImgH;
-    }
+    /* ── Restore DOM ── */
+    leftPane.style.width    = prev.leftW;
+    leftPane.style.maxWidth = prev.leftMax;
+    rightPane.style.flex    = prev.rightFlex || '1';
+    rightPane.style.width   = prev.rightW;
+    wrap.style.height       = prev.wrapH;
+    wrap.style.overflow     = prev.wrapOv;
+    wrap.style.display      = prev.wrapDisplay;
+    leftBody.style.height   = prev.leftBodyH;
+    leftBody.style.overflow = prev.leftBodyOv;
+    rightBody.style.height  = prev.rightBodyH;
+    rightBody.style.overflow= prev.rightBodyOv;
+    leftHead.style.overflow = prev.leftHeadOv;
+    rightHead.style.overflow= prev.rightHeadOv;
+    if (chartHeadTable) chartHeadTable.style.width = prev.chartTableW;
 
-    /* Label and save */
-    const dateStr=new Date().toISOString().split('T')[0];
-    const label=document.getElementById('connLabel').textContent.replace(/[^a-zA-Z0-9]/g,'_');
-    pdf.save('GanttChart_'+label+'_'+dateStr+'.pdf');
+    /* ── Build PDF — fit entire stitched canvas to A3 landscape ── */
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+    const pageW = pdf.internal.pageSize.getWidth();   /* 420mm */
+    const pageH = pdf.internal.pageSize.getHeight();  /* 297mm */
 
-  }catch(err){
-    console.error('PDF export error:',err);
-    alert('PDF export failed: '+err.message);
-  }finally{
-    btn.innerHTML=origText;
-    btn.style.pointerEvents='';btn.style.opacity='';
+    const imgW = stitched.width;
+    const imgH = stitched.height;
+
+    /* Scale to fit width; if still too tall, scale to fit height */
+    const ratio = Math.min(pageW / imgW, pageH / imgH);
+    const fitW  = imgW * ratio;
+    const fitH  = imgH * ratio;
+
+    /* Centre vertically */
+    const yOff  = (pageH - fitH) / 2;
+
+    const imgData = stitched.toDataURL('image/jpeg', 0.92);
+    pdf.addImage(imgData, 'JPEG', 0, yOff, fitW, fitH);
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    const label   = (document.getElementById('connLabel').textContent || 'Gantt')
+                      .replace(/[^a-zA-Z0-9]/g, '_');
+    pdf.save('GanttChart_' + label + '_' + dateStr + '.pdf');
+
+  } catch(err) {
+    console.error('PDF export error:', err);
+    alert('PDF export failed: ' + err.message);
+  } finally {
+    btn.innerHTML = origHTML;
+    btn.style.pointerEvents = '';
+    btn.style.opacity = '';
+  }
+}
+
+/* ── Sync row heights between left and right panes ── */
+function syncRowHeights(){
+  const leftRows=document.querySelectorAll('#leftTbody tr');
+  const rightRows=document.querySelectorAll('#ganttBody tr');
+  const len=Math.min(leftRows.length,rightRows.length);
+  /* Reset first so natural heights can be measured */
+  for(let i=0;i<len;i++){
+    leftRows[i].style.height='';
+    rightRows[i].style.height='';
+  }
+  /* Measure and apply the max of each pair */
+  for(let i=0;i<len;i++){
+    const h=Math.max(leftRows[i].getBoundingClientRect().height,
+                     rightRows[i].getBoundingClientRect().height,34);
+    leftRows[i].style.height=h+'px';
+    rightRows[i].style.height=h+'px';
   }
 }
 
