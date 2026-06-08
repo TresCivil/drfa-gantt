@@ -39,8 +39,21 @@ input[type=search]{width:110px}
 .leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--gray-600)}
 .leg-dot{width:10px;height:10px;border-radius:2px}
 
-/* gantt wrap */
-#ganttWrap{flex:1;overflow:auto;position:relative}
+/* gantt wrap — dual pane */
+#ganttWrap{flex:1;display:flex;overflow:hidden;position:relative}
+#leftPane{display:flex;flex-direction:column;overflow:hidden;border-right:3px solid var(--border-md);flex-shrink:0;width:55%;max-width:75%;min-width:180px}
+#rightPane{display:flex;flex-direction:column;flex:1;overflow:hidden}
+#leftPane .pane-head,#rightPane .pane-head{flex-shrink:0;overflow:hidden;background:var(--gray-50)}
+#leftPane .pane-body,#rightPane .pane-body{flex:1;overflow:auto;min-height:0}
+#leftPane table,#rightPane table{border-collapse:collapse;table-layout:fixed}
+#leftPane thead th,#rightPane thead th{position:sticky;top:0;z-index:20;background:var(--gray-50);border-bottom:1px solid var(--border-md);font-size:11px;font-weight:600;color:var(--gray-600);padding:0 8px;height:26px;white-space:nowrap;text-align:left;text-transform:uppercase;letter-spacing:.03em}
+#leftPane tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:30px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#rightPane tbody td{padding:0;border-bottom:1px solid var(--border);height:30px;vertical-align:top}
+#leftPane tbody tr:hover td,#rightPane tbody tr:hover td{background:#f4f6fb}
+/* split peg */
+#splitPeg{width:6px;flex-shrink:0;cursor:col-resize;background:var(--gray-200);position:relative;z-index:50;transition:background .15s;display:flex;align-items:center;justify-content:center}
+#splitPeg:hover,#splitPeg.dragging{background:#6b3fa0}
+#splitPeg::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:32px;border-radius:1px;background:rgba(255,255,255,.7);pointer-events:none}
 
 /* table */
 table{border-collapse:collapse;table-layout:fixed;width:max-content;min-width:100%}
@@ -62,7 +75,7 @@ tr.group-epar:hover td{background:#dff0e6}
 .expand-btn{cursor:pointer;font-size:10px;margin-right:4px;user-select:none;color:var(--gray-400)}
 
 /* column widths */
-.w-id{width:100px}.w-road{width:130px}.w-pm-col{width:90px}.w-team-col{width:110px}.w-date{width:100px}.w-dur{width:62px;text-align:center}.w-prog{width:90px}.w-cost{width:90px}.w-dep{width:110px}.w-mile{width:70px;text-align:center}.w-pm{width:0;padding:0;overflow:hidden}
+.w-id{width:100px}.w-road{width:130px}.w-pm-col{width:90px}.w-team-col{width:110px}.w-date{width:100px}.w-start{width:100px}.w-end{width:100px}.w-dur{width:62px;text-align:center}.w-prog{width:90px}.w-cost{width:90px}.w-dep{width:110px}.w-mile{width:70px;text-align:center}.w-pm{width:0;padding:0;overflow:hidden}
 
 /* inline editable cells */
 .cell-edit{width:100%;height:100%;box-sizing:border-box;font-family:inherit;font-size:12px;border:none;outline:none;background:transparent;cursor:text;padding:0;color:inherit}
@@ -149,14 +162,18 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
 #emptyState{display:none;flex-direction:column;align-items:center;justify-content:center;height:180px;color:var(--gray-400);gap:8px}
 #emptyState p{font-size:13px}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div id="app">
 <div id="toolbar">
-  <div class="seg" id="viewSeg">
-    <button onclick="setView('Close')">Close</button>
-    <button class="active" onclick="setView('Open')">Open</button>
-  </div>
+  <span class="tb-label">Status</span>
+  <select id="viewSeg" onchange="setView(this.value)" style="font-family:inherit;font-size:12px;height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:#fff;color:var(--gray-800);outline:none">
+    <option value="All">All</option>
+    <option value="Open" selected>Open</option>
+    <option value="Close">Close</option>
+  </select>
   <div class="seg" id="scaleSeg">
     <button onclick="setScale('Days')">Days</button>
     <button class="active" onclick="setScale('Weeks')">Weeks</button>
@@ -204,33 +221,53 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
   <div class="tb-sep"></div>
   <div class="status-dot" id="statusDot"></div>
   <span id="connLabel">Demo data</span>
+  <div class="tb-sep"></div>
+  <button id="pdfBtn" onclick="exportPDF()" style="font-family:inherit;font-size:12px;height:26px;padding:0 11px;border:1px solid #4a2d7a;border-radius:var(--radius);background:#4a2d7a;color:#fff;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;font-weight:500" onmouseover="this.style.background='#3a2060'" onmouseout="this.style.background='#4a2d7a'">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,18 15,15"/></svg>
+    Export PDF
+  </button>
 </div>
 
 <div id="ganttWrap">
-  <table id="ganttTable">
-    <thead>
-      <tr>
+  <!-- LEFT PANE: data columns -->
+  <div id="leftPane">
+    <div class="pane-head" id="leftHead">
+      <table><thead><tr>
         <th class="w-id">Recovery No.</th>
         <th class="w-road">Road / Assets</th>
         <th class="w-pm-col">PM</th>
         <th class="w-team-col">Construction Team</th>
         <th class="w-dep">Dependency</th>
         <th class="w-cost">Est. Cost</th>
-        <th class="w-date">Start</th>
-        <th class="w-date">End</th>
+        <th class="w-start">Start</th>
+        <th class="w-end">End</th>
         <th class="w-dur">Duration</th>
         <th class="w-mile">Milestone</th>
         <th class="w-prog">Progress</th>
+      </tr></thead></table>
+    </div>
+    <div class="pane-body" id="leftBody">
+      <table id="leftTable"><tbody id="leftTbody"></tbody></table>
+    </div>
+  </div>
+  <!-- DRAG PEG -->
+  <div id="splitPeg" title="Drag to resize panes"></div>
+  <!-- RIGHT PANE: Gantt chart -->
+  <div id="rightPane">
+    <div class="pane-head" id="rightHead">
+      <table id="chartHeadTable"><thead><tr>
         <th class="th-chart" id="chartHeaderCell">
           <div class="chart-header">
             <div class="month-row" id="monthRow"></div>
             <div class="tick-row"  id="tickRow"></div>
           </div>
         </th>
-      </tr>
-    </thead>
-    <tbody id="ganttBody"></tbody>
-  </table>
+      </tr></thead></table>
+    </div>
+    <div class="pane-body" id="rightBody">
+      <table id="ganttTable"><tbody id="ganttBody"></tbody></table>
+    </div>
+  </div>
   <div id="emptyState">
     <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="4" x2="8" y2="9"/><line x1="16" y1="4" x2="16" y2="9"/></svg>
     <p>No tasks match your filters.</p>
@@ -314,40 +351,60 @@ function groupColor(t) {
 
 /* demo data */
 const DEMO = [
-  {id:'IRW', road:'IRW', start:'2026-04-06',end:'2026-05-29',progress:59,pm:'IRW',group:true,groupKey:'IRW'},
-  {id:'DM00015',road:'Biripi Way',       start:'2026-04-06',end:'2026-04-09',progress:30, pm:'PM 1 | Finn Valley',   parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
-  {id:'DM00003',road:'Bowman River Rd',  start:'2026-04-06',end:'2026-04-10',progress:20, pm:'PM 3 | MCC Gloucester',parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:'DM00015'},
-  {id:'DM00016',road:'Biripi Way',       start:'2026-04-08',end:'2026-04-13',progress:100,pm:'PM 10 | Finn Valley',  parent:'IRW',groupKey:'IRW',status:'closed',milestone:true,predecessor:'DM00003'},
-  {id:'DM00021',road:'Bakers Creek Rd',  start:'2026-04-09',end:'2026-04-16',progress:90, pm:'PM 5 | MCC Gloucester',parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
-  {id:'DM00017',road:'Philip St',        start:'2026-04-10',end:'2026-04-15',progress:50, pm:'PM 6 | Finn Valley',   parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
-  {id:'DM00019',road:'Bakers Creek Rd',  start:'2026-04-14',end:'2026-05-07',progress:80, pm:'PM 2 | Saltwater',     parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
-  {id:'DM00018',road:'Bakers Creek Rd',  start:'2026-04-14',end:'2026-04-20',progress:60, pm:'PM 3 | MCC Gloucester',parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
-  {id:'DM00020',road:'Bakers Creek Rd',  start:'2026-04-16',end:'2026-04-16',progress:100,pm:'PM 2 | Saltwater',     parent:'IRW',groupKey:'IRW',status:'closed',milestone:true,predecessor:'DM00019'},
-  {id:'DM00022',road:'Bakers Creek Rd',  start:'2026-04-20',end:'2026-04-28',progress:20, pm:'PM 3 | Finn Valley',   parent:'IRW',groupKey:'IRW',status:'open',milestone:false,predecessor:null},
-
-  {id:'EW',  road:'EW',  start:'2026-04-15',end:'2026-05-29',progress:54,pm:'EW',group:true,groupKey:'EW'},
-  {id:'AE00001',road:'Abbotts Falls Rd', start:'2026-04-15',end:'2026-05-20',progress:100,pm:'PM2 | Irwin Tree Group', parent:'EW',groupKey:'EW',status:'closed',milestone:true, predecessor:null},
-  {id:'AE00002',road:'Aerodrome Rd',     start:'2026-04-27',end:'2026-05-01',progress:50, pm:'PM 1 | MM',              parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
-  {id:'AE00003',road:'Bulli Rd',         start:'2026-04-27',end:'2026-05-05',progress:30, pm:'PM 2 | Ability Tree Svc',parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:'AE00002'},
-  {id:'AE00004',road:'Factory Rd',       start:'2026-04-29',end:'2026-05-06',progress:40, pm:'PM 2 | MM',              parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
-  {id:'AE00005',road:'Glen Ora Rd',      start:'2026-05-01',end:'2026-05-06',progress:60, pm:'PM 2 | Irwin Tree Group',parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:'AE00004'},
-  {id:'AE00006',road:'Gloucester Tops Rd',start:'2026-05-04',end:'2026-05-24',progress:20,pm:'PM 3 | Arbor Workx',    parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
-  {id:'AE00007',road:'Hoggs Ln',         start:'2026-05-07',end:'2026-05-28',progress:80, pm:'PM 3 | Arbor Workx',    parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
-  {id:'AE00008',road:'Jericho Rd',       start:'2026-05-11',end:'2026-05-15',progress:90, pm:'PM 4 | Irwin Trees',    parent:'EW',groupKey:'EW',status:'open', milestone:false,predecessor:null},
-
-  {id:'EPAR',road:'EPAR',start:'2026-05-03',end:'2026-05-22',progress:53,pm:'EPAR',group:true,groupKey:'EPAR'},
-  {id:'DM00008',road:'Barrington West Rd',start:'2026-05-03',end:'2026-05-07',progress:70,pm:'PM 3 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
-  {id:'DM00005',road:'Tigrah Rd',         start:'2026-05-04',end:'2026-05-07',progress:90,pm:'PM 5 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
-  {id:'DM00006',road:'MR 7719 Thunderbolts',start:'2026-05-06',end:'2026-05-11',progress:50,pm:'PM 5 | Saltwater',   parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
-  {id:'DM00010',road:'Wallanbah Rd',      start:'2026-05-11',end:'2026-05-14',progress:20, pm:'PM 5 | Finn Valley',   parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:'DM00006'},
-  {id:'DM00014',road:'Mud Hut Rd',        start:'2026-05-11',end:'2026-05-18',progress:100,pm:'PM 9 | MCC Gloucester',parent:'EPAR',groupKey:'EPAR',status:'closed',milestone:true, predecessor:'DM00010'},
-  {id:'DM00012',road:'Carters Rd',        start:'2026-05-13',end:'2026-05-18',progress:50, pm:'PM 5 | MCC Gloucester',parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
-  {id:'DM00009',road:'Bucketts Rd',       start:'2026-05-18',end:'2026-05-21',progress:30, pm:'PM 4 | Saltwater',     parent:'EPAR',groupKey:'EPAR',status:'open', milestone:false,predecessor:null},
+  /* ── IRW ── */
+  {id:'IRW',road:'IRW',start:'2026-03-02',end:'2026-07-31',progress:62,pm:'IRW',group:true,groupKey:'IRW'},
+  {id:'DM00001',road:'Biripi Way',              start:'2026-03-02',end:'2026-03-06',progress:100,pm:'PM 1 | Finn Valley',    parent:'IRW',groupKey:'IRW',status:'closed',milestone:false,predecessor:null,       estimatedCost:'18000'},
+  {id:'DM00002',road:'Bowman River Rd',          start:'2026-03-09',end:'2026-03-14',progress:100,pm:'PM 3 | MCC Gloucester', parent:'IRW',groupKey:'IRW',status:'closed',milestone:false,predecessor:'DM00001',  estimatedCost:'22000'},
+  {id:'DM00003',road:'Bakers Creek Rd',          start:'2026-03-16',end:'2026-03-20',progress:100,pm:'PM 5 | MCC Gloucester', parent:'IRW',groupKey:'IRW',status:'closed',milestone:true, predecessor:'DM00002',  estimatedCost:'9500'},
+  {id:'DM00004',road:'Philip St',                start:'2026-03-23',end:'2026-03-27',progress:100,pm:'PM 6 | Finn Valley',    parent:'IRW',groupKey:'IRW',status:'closed',milestone:false,predecessor:null,       estimatedCost:'14500'},
+  {id:'DM00005',road:'Gloucester Tops Rd',       start:'2026-03-30',end:'2026-04-09',progress:100,pm:'PM 2 | Saltwater',      parent:'IRW',groupKey:'IRW',status:'closed',milestone:false,predecessor:'DM00004',  estimatedCost:'31000'},
+  {id:'DM00006',road:'Biripi Way B',             start:'2026-04-13',end:'2026-04-17',progress:100,pm:'PM 10 | Finn Valley',   parent:'IRW',groupKey:'IRW',status:'closed',milestone:true, predecessor:'DM00005',  estimatedCost:'27000'},
+  {id:'DM00007',road:'Wallanbah Rd',             start:'2026-04-20',end:'2026-05-01',progress:80, pm:'PM 5 | Finn Valley',    parent:'IRW',groupKey:'IRW',status:'open',  milestone:false,predecessor:'DM00006',  estimatedCost:'19500'},
+  {id:'DM00008',road:'Thunderbolts Way',         start:'2026-04-27',end:'2026-05-08',progress:60, pm:'PM 3 | MCC Gloucester', parent:'IRW',groupKey:'IRW',status:'open',  milestone:false,predecessor:null,       estimatedCost:'25000'},
+  {id:'DM00009',road:'Mud Hut Rd',               start:'2026-05-11',end:'2026-05-22',progress:40, pm:'PM 9 | MCC Gloucester', parent:'IRW',groupKey:'IRW',status:'open',  milestone:false,predecessor:'DM00007',  estimatedCost:'11000'},
+  {id:'DM00010',road:'Carters Rd',               start:'2026-05-18',end:'2026-05-29',progress:20, pm:'PM 5 | MCC Gloucester', parent:'IRW',groupKey:'IRW',status:'open',  milestone:false,predecessor:'DM00008',  estimatedCost:'16000'},
+  {id:'DM00011',road:'Bakers Creek Rd North',    start:'2026-06-01',end:'2026-06-12',progress:10, pm:'PM 2 | Saltwater',      parent:'IRW',groupKey:'IRW',status:'open',  milestone:false,predecessor:'DM00009',  estimatedCost:'21000'},
+  {id:'DM00012',road:'Bucketts Rd',              start:'2026-06-15',end:'2026-06-26',progress:0,  pm:'PM 4 | Saltwater',      parent:'IRW',groupKey:'IRW',status:'open',  milestone:false,predecessor:'DM00010',  estimatedCost:'28000'},
+  {id:'DM00013',road:'Barrington West Rd',       start:'2026-07-06',end:'2026-07-17',progress:0,  pm:'PM 3 | Saltwater',      parent:'IRW',groupKey:'IRW',status:'open',  milestone:false,predecessor:'DM00011',  estimatedCost:'13500'},
+  {id:'DM00014',road:'Moppy Rd',                 start:'2026-07-20',end:'2026-07-24',progress:0,  pm:'PM 1 | Finn Valley',    parent:'IRW',groupKey:'IRW',status:'open',  milestone:false,predecessor:'DM00013',  estimatedCost:'17000'},
+  {id:'DM00015',road:'IRW Programme Complete',   start:'2026-07-31',end:'2026-07-31',progress:0,  pm:'PM 1 | Finn Valley',    parent:'IRW',groupKey:'IRW',status:'open',  milestone:true, predecessor:'DM00014',  estimatedCost:'0'},
+  /* ── EW ── */
+  {id:'EW',road:'EW',start:'2026-03-09',end:'2026-08-14',progress:55,pm:'EW',group:true,groupKey:'EW'},
+  {id:'AE00001',road:'Abbotts Falls Rd',         start:'2026-03-09',end:'2026-03-13',progress:100,pm:'PM 2 | Irwin Tree Group',parent:'EW',groupKey:'EW',status:'closed',milestone:false,predecessor:null,       estimatedCost:'15000'},
+  {id:'AE00002',road:'Aerodrome Rd',             start:'2026-03-16',end:'2026-03-20',progress:100,pm:'PM 1 | MM',              parent:'EW',groupKey:'EW',status:'closed',milestone:false,predecessor:'AE00001',  estimatedCost:'8000'},
+  {id:'AE00003',road:'Bulli Rd',                 start:'2026-03-23',end:'2026-03-27',progress:100,pm:'PM 2 | Ability Tree Svc',parent:'EW',groupKey:'EW',status:'closed',milestone:false,predecessor:'AE00002',  estimatedCost:'12000'},
+  {id:'AE00004',road:'Factory Rd',               start:'2026-03-30',end:'2026-04-03',progress:100,pm:'PM 2 | MM',              parent:'EW',groupKey:'EW',status:'closed',milestone:true, predecessor:'AE00003',  estimatedCost:'9500'},
+  {id:'AE00005',road:'Glen Ora Rd',              start:'2026-04-07',end:'2026-04-11',progress:100,pm:'PM 2 | Irwin Tree Group',parent:'EW',groupKey:'EW',status:'closed',milestone:false,predecessor:null,       estimatedCost:'7000'},
+  {id:'AE00006',road:'Gloucester Tops Rd',       start:'2026-04-14',end:'2026-04-25',progress:75, pm:'PM 3 | Arbor Workx',    parent:'EW',groupKey:'EW',status:'open',  milestone:false,predecessor:'AE00004',  estimatedCost:'23000'},
+  {id:'AE00007',road:'Hoggs Ln',                 start:'2026-04-21',end:'2026-05-02',progress:55, pm:'PM 3 | Arbor Workx',    parent:'EW',groupKey:'EW',status:'open',  milestone:false,predecessor:'AE00005',  estimatedCost:'18500'},
+  {id:'AE00008',road:'Jericho Rd',               start:'2026-04-28',end:'2026-05-09',progress:45, pm:'PM 4 | Irwin Trees',    parent:'EW',groupKey:'EW',status:'open',  milestone:false,predecessor:'AE00006',  estimatedCost:'14000'},
+  {id:'AE00009',road:'Killabakh Rd',             start:'2026-05-11',end:'2026-05-22',progress:30, pm:'PM 1 | MM',              parent:'EW',groupKey:'EW',status:'open',  milestone:false,predecessor:'AE00007',  estimatedCost:'19000'},
+  {id:'AE00010',road:'Landsdowne Rd',            start:'2026-05-18',end:'2026-05-29',progress:15, pm:'PM 2 | Ability Tree Svc',parent:'EW',groupKey:'EW',status:'open',  milestone:false,predecessor:'AE00008',  estimatedCost:'31000'},
+  {id:'AE00011',road:'Manning River Dr',         start:'2026-06-01',end:'2026-06-19',progress:5,  pm:'PM 3 | Arbor Workx',    parent:'EW',groupKey:'EW',status:'open',  milestone:false,predecessor:'AE00009',  estimatedCost:'26000'},
+  {id:'AE00012',road:'Nowendoc Rd',              start:'2026-06-22',end:'2026-07-03',progress:0,  pm:'PM 4 | Irwin Trees',    parent:'EW',groupKey:'EW',status:'open',  milestone:false,predecessor:'AE00010',  estimatedCost:'22500'},
+  {id:'AE00013',road:'Old Booral Rd',            start:'2026-07-06',end:'2026-07-17',progress:0,  pm:'PM 1 | MM',              parent:'EW',groupKey:'EW',status:'open',  milestone:false,predecessor:'AE00011',  estimatedCost:'17500'},
+  {id:'AE00014',road:'Pampoolah Rd',             start:'2026-07-20',end:'2026-07-31',progress:0,  pm:'PM 2 | Irwin Tree Group',parent:'EW',groupKey:'EW',status:'open',  milestone:false,predecessor:'AE00012',  estimatedCost:'13000'},
+  {id:'AE00015',road:'EW Programme Complete',    start:'2026-08-14',end:'2026-08-14',progress:0,  pm:'PM 2 | Irwin Tree Group',parent:'EW',groupKey:'EW',status:'open',  milestone:true, predecessor:'AE00014',  estimatedCost:'0'},
+  /* ── EPAR ── */
+  {id:'EPAR',road:'EPAR',start:'2026-03-16',end:'2026-07-25',progress:48,pm:'EPAR',group:true,groupKey:'EPAR'},
+  {id:'EP00001',road:'Tigrah Rd',                start:'2026-03-16',end:'2026-03-19',progress:100,pm:'PM 5 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'closed',milestone:false,predecessor:null,       estimatedCost:'6000'},
+  {id:'EP00002',road:'MR 7719 Thunderbolts Way', start:'2026-03-23',end:'2026-03-27',progress:100,pm:'PM 5 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'closed',milestone:false,predecessor:'EP00001',  estimatedCost:'19000'},
+  {id:'EP00003',road:'Barrington West Rd',       start:'2026-03-30',end:'2026-04-03',progress:100,pm:'PM 3 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'closed',milestone:false,predecessor:'EP00002',  estimatedCost:'11000'},
+  {id:'EP00004',road:'Bucketts Rd',              start:'2026-04-07',end:'2026-04-11',progress:100,pm:'PM 4 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'closed',milestone:true, predecessor:'EP00003',  estimatedCost:'25000'},
+  {id:'EP00005',road:'Cundle Flat Rd',           start:'2026-04-14',end:'2026-04-25',progress:85, pm:'PM 6 | Finn Valley',    parent:'EPAR',groupKey:'EPAR',status:'open',  milestone:false,predecessor:null,       estimatedCost:'34000'},
+  {id:'EP00006',road:'Dewfish Creek Rd',         start:'2026-04-21',end:'2026-05-02',progress:70, pm:'PM 5 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'open',  milestone:false,predecessor:'EP00004',  estimatedCost:'16500'},
+  {id:'EP00007',road:'Elands Rd',                start:'2026-04-28',end:'2026-05-09',progress:50, pm:'PM 3 | MCC Gloucester', parent:'EPAR',groupKey:'EPAR',status:'open',  milestone:false,predecessor:'EP00005',  estimatedCost:'29000'},
+  {id:'EP00008',road:'Faulkners Rd',             start:'2026-05-11',end:'2026-05-22',progress:35, pm:'PM 4 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'open',  milestone:false,predecessor:'EP00006',  estimatedCost:'12000'},
+  {id:'EP00009',road:'Giro State Forest Rd',     start:'2026-05-18',end:'2026-05-29',progress:20, pm:'PM 5 | Finn Valley',    parent:'EPAR',groupKey:'EPAR',status:'open',  milestone:false,predecessor:'EP00007',  estimatedCost:'38000'},
+  {id:'EP00010',road:'Hannam Vale Rd',           start:'2026-06-01',end:'2026-06-12',progress:10, pm:'PM 9 | MCC Gloucester', parent:'EPAR',groupKey:'EPAR',status:'open',  milestone:false,predecessor:'EP00008',  estimatedCost:'21000'},
+  {id:'EP00011',road:'Innes View Rd',            start:'2026-06-15',end:'2026-06-26',progress:0,  pm:'PM 3 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'open',  milestone:false,predecessor:'EP00009',  estimatedCost:'15500'},
+  {id:'EP00012',road:'Johnsons Rd',              start:'2026-07-06',end:'2026-07-17',progress:0,  pm:'PM 5 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'open',  milestone:false,predecessor:'EP00010',  estimatedCost:'18000'},
+  {id:'EP00013',road:'EPAR Programme Complete',  start:'2026-07-25',end:'2026-07-25',progress:0,  pm:'PM 5 | Saltwater',      parent:'EPAR',groupKey:'EPAR',status:'open',  milestone:true, predecessor:'EP00012',  estimatedCost:'0'},
 ];
 
 let tasks = [];
 let scale = 'Weeks', viewMode = 'Open', collapsed = {}, pending = null, isConnected = false;
-const TODAY = new Date('2026-05-29');
+const TODAY = new Date('2026-05-11');
 
 /* helpers */
 function parseDate(d){
@@ -462,6 +519,7 @@ function getFiltered(){
     if(!t.milestone){
       if(viewMode==='Open'&&t.status==='closed')return false;
       if(viewMode==='Close'&&t.status!=='closed')return false;
+      /* viewMode==='All' — no filter */
     }
     if(grp&&t.groupKey!==grp)return false;
     if(pm&&!(t.pm||'').startsWith(pm))return false;
@@ -523,7 +581,9 @@ function render(){
   /* visIds must include ALL task ids so parent checks work */
   const visIds=new Set(tasks.map(t=>t.id));
   const tbody=document.getElementById('ganttBody');
+  const leftTbody=document.getElementById('leftTbody');
   tbody.innerHTML='';
+  leftTbody.innerHTML='';
   let rowCount=0;
 
   /* track bar positions for drawing connector lines after rows are built
@@ -552,9 +612,10 @@ function render(){
       tdId.appendChild(btn);
       const idSpan=document.createElement('span');idSpan.style.color=gc.bar;idSpan.style.fontWeight='700';idSpan.textContent=t.id;tdId.appendChild(idSpan);
     } else { tdId.textContent=t.id; }
-    tr.appendChild(tdId);
+    /* tdId -> leftTr */
 
-    const tdR=document.createElement('td');tdR.className='w-road';tdR.textContent=t.group?'':t.road;tr.appendChild(tdR);
+    const tdR=document.createElement('td');tdR.className='w-road';tdR.textContent=t.group?'':t.road;
+    /* tdR -> leftTr */
 
     /* PM — inline editable */
     const tdPmCol=document.createElement('td');tdPmCol.className='w-pm-col editable';
@@ -575,7 +636,7 @@ function render(){
       };
       tdPmCol.appendChild(inPM);
     }
-    tr.appendChild(tdPmCol);
+    /* tdPmCol -> leftTr */
 
     /* Construction Team — inline editable */
     const tdTeamCol=document.createElement('td');tdTeamCol.className='w-team-col editable';
@@ -596,7 +657,7 @@ function render(){
       };
       tdTeamCol.appendChild(inTeam);
     }
-    tr.appendChild(tdTeamCol);
+    /* tdTeamCol -> leftTr */
 
     /* Dependency — multi-select dropdown */
     const tdDep=document.createElement('td');tdDep.className='w-dep editable';tdDep.style.position='relative';
@@ -685,7 +746,7 @@ function render(){
       };
       tdDep.appendChild(depDisplay);
     }
-    tr.appendChild(tdDep);
+    /* tdDep -> leftTr */
 
     /* Estimated Cost */
     const tdCost=document.createElement('td');tdCost.className='w-cost editable';
@@ -708,10 +769,10 @@ function render(){
       costWrap.appendChild(inCost);
       tdCost.appendChild(costWrap);
     }
-    tr.appendChild(tdCost);
+    /* tdCost -> leftTr */
 
     /* Start — inline editable date dd/mm/yyyy */
-    const tdS=document.createElement('td');tdS.className='w-date editable';
+    const tdS=document.createElement('td');tdS.className='w-start editable';
     if(t.group){
       tdS.textContent=fmtDate(t.start);tdS.style.color=gc.bar;tdS.style.fontWeight='700';
     } else {
@@ -731,10 +792,10 @@ function render(){
       if(!t.start)tdS.style.background='#fce8e8';
       tdS.appendChild(inStart);
     }
-    tr.appendChild(tdS);
+    /* tdS -> leftTr */
 
     /* End — inline editable date dd/mm/yyyy */
-    const tdE=document.createElement('td');tdE.className='w-date editable';
+    const tdE=document.createElement('td');tdE.className='w-end editable';
     if(t.group){
       tdE.textContent=fmtDate(t.end);tdE.style.color=gc.bar;tdE.style.fontWeight='700';
     } else {
@@ -755,13 +816,13 @@ function render(){
       if(!hasEnd||!t.start)tdE.style.background='#fce8e8';
       tdE.appendChild(inEnd);
     }
-    tr.appendChild(tdE);
+    /* tdE -> leftTr */
 
     /* Duration — calculated, read only */
     const tdD=document.createElement('td');tdD.className='w-dur';
     tdD.textContent=durLabel(t.start,t.end);
     if(t.group){tdD.style.fontWeight='700';tdD.style.color=gc.bar}
-    tr.appendChild(tdD);
+    /* tdD -> leftTr */
 
     /* Progress — inline editable number */
     const tdP=document.createElement('td');tdP.className='w-prog editable';
@@ -797,7 +858,7 @@ function render(){
       const pct=document.createElement('span');pct.style.fontSize='11px';pct.style.color='var(--gray-400)';pct.textContent='%';pc.appendChild(pct);
       tdP.appendChild(pc);
     }
-    tr.appendChild(tdP);
+    /* tdP -> leftTr */
 
     /* Milestone — True/False dropdown */
     const tdMile2=document.createElement('td');tdMile2.className='w-mile editable';
@@ -817,10 +878,9 @@ function render(){
       };
       tdMile2.appendChild(selMile);
     }
-    /* Insert milestone before progress */
-    tr.insertBefore(tdMile2, tdP);
+    /* tdMile2 -> leftTr */
 
-    /* Chart cell */
+    /* Chart cell → right pane only */
     const tdChart=document.createElement('td');tdChart.className='td-chart';
     const cell=document.createElement('div');cell.className='chart-row-cell';cell.style.width=tw+'px';
 
@@ -865,8 +925,26 @@ function render(){
     }
 
     tdChart.className='td-chart';tdChart.dataset.taskId=t.id;
-    tdChart.appendChild(cell);tr.appendChild(tdChart);
+    tdChart.appendChild(cell);
+    tr.appendChild(tdChart);
     tbody.appendChild(tr);
+
+    /* Left data row */
+    const leftTr=document.createElement('tr');
+    if(t.group) leftTr.className='group-row group-'+t.id.toLowerCase();
+    leftTr.onclick=()=>{ postUp({type:'TASK_SELECTED',task:t}); };
+    leftTr.appendChild(tdId);
+    leftTr.appendChild(tdR);
+    leftTr.appendChild(tdPmCol);
+    leftTr.appendChild(tdTeamCol);
+    leftTr.appendChild(tdDep);
+    leftTr.appendChild(tdCost);
+    leftTr.appendChild(tdS);
+    leftTr.appendChild(tdE);
+    leftTr.appendChild(tdD);
+    leftTr.appendChild(tdMile2);
+    leftTr.appendChild(tdP);
+    leftTbody.appendChild(leftTr);
   });
 
   document.getElementById('emptyState').style.display=rowCount===0?'flex':'none';
@@ -1050,7 +1128,9 @@ function setScale(s){
 }
 function setView(v){
   viewMode=v;
-  document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('active',b.textContent===v));render();
+  const sel=document.getElementById('viewSeg');
+  if(sel&&sel.value!==v)sel.value=v;
+  render();
 }
 function applyFilters(){render()}
 
@@ -1121,6 +1201,162 @@ window.addEventListener('message',e=>{
   }
 });
 
+/* ── PDF Export ── */
+async function exportPDF(){
+  const btn=document.getElementById('pdfBtn');
+  const origText=btn.innerHTML;
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generating…';
+  btn.style.pointerEvents='none';btn.style.opacity='0.7';
+
+  try{
+    /* Temporarily expand both panes to full content width so nothing is clipped */
+    const leftPane=document.getElementById('leftPane');
+    const rightPane=document.getElementById('rightPane');
+    const leftBody=document.getElementById('leftBody');
+    const rightBody=document.getElementById('rightBody');
+    const leftHead=document.getElementById('leftHead');
+    const rightHead=document.getElementById('rightHead');
+    const wrap=document.getElementById('ganttWrap');
+    const app=document.getElementById('app');
+
+    /* Save current styles */
+    const savedStyles={
+      wrapOverflow:wrap.style.overflow,
+      wrapDisplay:wrap.style.display,
+      leftWidth:leftPane.style.width,
+      leftMax:leftPane.style.maxWidth,
+      leftOverflow:leftPane.style.overflow,
+      rightOverflow:rightPane.style.overflow,
+      leftBodyOverflow:leftBody.style.overflow,
+      rightBodyOverflow:rightBody.style.overflow,
+      leftHeadOverflow:leftHead.style.overflow,
+      rightHeadOverflow:rightHead.style.overflow,
+      appHeight:app.style.height,
+      appOverflow:app.style.overflow,
+    };
+
+    /* Get full content dimensions */
+    const leftTable=document.getElementById('leftTable');
+    const ganttTable=document.getElementById('ganttTable');
+    const leftW=leftTable?leftTable.scrollWidth:leftPane.scrollWidth;
+    const rightW=ganttTable?ganttTable.scrollWidth:rightPane.scrollWidth;
+    const totalW=leftW+6+rightW; /* 6px for peg */
+    const totalH=Math.max(leftBody.scrollHeight,rightBody.scrollHeight)
+                +leftHead.scrollHeight+document.getElementById('toolbar').offsetHeight+10;
+
+    /* Expand everything to show full content */
+    wrap.style.overflow='visible';
+    wrap.style.display='block';
+    leftPane.style.width=leftW+'px';
+    leftPane.style.maxWidth='none';
+    leftPane.style.overflow='visible';
+    rightPane.style.overflow='visible';
+    leftBody.style.overflow='visible';
+    rightBody.style.overflow='visible';
+    leftHead.style.overflow='visible';
+    rightHead.style.overflow='visible';
+    app.style.height='auto';
+    app.style.overflow='visible';
+
+    /* Wait for reflow */
+    await new Promise(r=>setTimeout(r,300));
+
+    /* Capture */
+    const canvas=await html2canvas(app,{
+      scale:1.5,
+      useCORS:true,
+      allowTaint:true,
+      scrollX:0,scrollY:0,
+      width:app.scrollWidth,
+      height:app.scrollHeight,
+      windowWidth:app.scrollWidth,
+      windowHeight:app.scrollHeight,
+    });
+
+    /* Restore styles */
+    wrap.style.overflow=savedStyles.wrapOverflow;
+    wrap.style.display=savedStyles.wrapDisplay;
+    leftPane.style.width=savedStyles.leftWidth;
+    leftPane.style.maxWidth=savedStyles.leftMax;
+    leftPane.style.overflow=savedStyles.leftOverflow;
+    rightPane.style.overflow=savedStyles.rightOverflow;
+    leftBody.style.overflow=savedStyles.leftBodyOverflow;
+    rightBody.style.overflow=savedStyles.rightBodyOverflow;
+    leftHead.style.overflow=savedStyles.leftHeadOverflow;
+    rightHead.style.overflow=savedStyles.rightHeadOverflow;
+    app.style.height=savedStyles.appHeight;
+    app.style.overflow=savedStyles.appOverflow;
+
+    /* Build PDF — landscape A3 for wide charts */
+    const {jsPDF}=window.jspdf;
+    const imgW=canvas.width;
+    const imgH=canvas.height;
+    /* Choose orientation and size to fit content */
+    const pdfW=297; /* A3 landscape width mm */
+    const pdfH=420; /* A3 landscape height mm */
+    const ratio=Math.min(pdfW/imgW, pdfH/imgH);
+    const finalW=imgW*ratio;
+    const finalH=imgH*ratio;
+    const orientation=imgW>imgH?'landscape':'portrait';
+    const pdf=new jsPDF({orientation, unit:'mm', format:'a3'});
+    const pageW=pdf.internal.pageSize.getWidth();
+    const pageH=pdf.internal.pageSize.getHeight();
+    /* If chart is taller than one page, split across pages */
+    const pageImgH=Math.floor(pageH/ratio);
+    let yOffset=0;
+    while(yOffset<imgH){
+      if(yOffset>0) pdf.addPage();
+      const sliceH=Math.min(pageImgH,imgH-yOffset);
+      const sliceCanvas=document.createElement('canvas');
+      sliceCanvas.width=imgW;sliceCanvas.height=sliceH;
+      const ctx=sliceCanvas.getContext('2d');
+      ctx.drawImage(canvas,0,-yOffset);
+      const sliceData=sliceCanvas.toDataURL('image/jpeg',0.92);
+      pdf.addImage(sliceData,'JPEG',0,0,pageW,sliceH*ratio);
+      yOffset+=pageImgH;
+    }
+
+    /* Label and save */
+    const dateStr=new Date().toISOString().split('T')[0];
+    const label=document.getElementById('connLabel').textContent.replace(/[^a-zA-Z0-9]/g,'_');
+    pdf.save('GanttChart_'+label+'_'+dateStr+'.pdf');
+
+  }catch(err){
+    console.error('PDF export error:',err);
+    alert('PDF export failed: '+err.message);
+  }finally{
+    btn.innerHTML=origText;
+    btn.style.pointerEvents='';btn.style.opacity='';
+  }
+}
+
+/* ── Sync vertical scroll between left and right panes ── */
+(function(){
+  let syncing=false;
+  function syncV(src,dst){src.addEventListener('scroll',function(){if(syncing)return;syncing=true;dst.scrollTop=src.scrollTop;syncing=false;});}
+  const lb=document.getElementById('leftBody'),rb=document.getElementById('rightBody');
+  const lh=document.getElementById('leftHead'),rh=document.getElementById('rightHead');
+  if(lb&&rb){syncV(lb,rb);syncV(rb,lb);}
+  if(lb&&lh){lb.addEventListener('scroll',function(){lh.scrollLeft=lb.scrollLeft;});}
+  if(rb&&rh){rb.addEventListener('scroll',function(){rh.scrollLeft=rb.scrollLeft;});}
+})();
+
+/* ── Split peg drag logic ── */
+(function(){
+  const peg=document.getElementById('splitPeg');
+  const left=document.getElementById('leftPane');
+  const wrap=document.getElementById('ganttWrap');
+  if(!peg||!left||!wrap)return;
+  try{
+    const saved=localStorage.getItem('gantt_split_px');
+    if(saved){const wrapW=wrap.getBoundingClientRect().width||window.innerWidth;const s=parseFloat(saved);if(s>180&&s<wrapW-200){left.style.width=s+'px';left.style.maxWidth='none';}else{localStorage.removeItem('gantt_split_px');}}
+  }catch(e){}
+  let dragging=false,startX=0,startW=0;
+  peg.addEventListener('mousedown',e=>{dragging=true;startX=e.clientX;startW=left.getBoundingClientRect().width;peg.classList.add('dragging');document.body.style.cursor='col-resize';document.body.style.userSelect='none';e.preventDefault();});
+  document.addEventListener('mousemove',e=>{if(!dragging)return;const newW=Math.min(wrap.getBoundingClientRect().width-120,Math.max(180,startW+(e.clientX-startX)));left.style.width=newW+'px';left.style.maxWidth='none';});
+  document.addEventListener('mouseup',()=>{if(!dragging)return;dragging=false;peg.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';try{localStorage.setItem('gantt_split_px',left.getBoundingClientRect().width);}catch(e){}});
+})();
+
 /* init */
 document.getElementById('connLabel').textContent = 'Connecting…';
 populateDropdowns();
@@ -1160,8 +1396,26 @@ function loadFromHash(){
   }catch(e){console.error('Hash load error:',e);return false;}
 }
 
-/* Try loading from hash on startup */
-loadFromHash();
+function loadDemoData(){
+  const seen={};const groupKeys=[];
+  DEMO.forEach(t=>{const k=(t.groupKey||'').trim();if(k&&!seen[k]){seen[k]=true;groupKeys.push(k);}});
+  const groupRows=groupKeys.map(gk=>{
+    const ch=DEMO.filter(t=>(t.groupKey||'').trim()===gk);
+    const starts=ch.filter(t=>t.start).map(t=>parseDate(t.start)).filter(Boolean);
+    const ends=ch.filter(t=>t.end).map(t=>parseDate(t.end)).filter(Boolean);
+    const progs=ch.map(t=>Number(t.progress));
+    const minStart=starts.length?new Date(Math.min(...starts)):new Date();
+    const maxEnd=ends.length?new Date(Math.max(...ends)):new Date();
+    const avgProg=progs.length?Math.round(progs.reduce((a,b)=>a+b,0)/progs.length):0;
+    return{id:gk,road:gk,group:true,groupKey:gk,start:minStart.toISOString().split('T')[0],end:maxEnd.toISOString().split('T')[0],progress:avgProg,pm:gk,status:'open'};
+  });
+  tasks=[...groupRows,...DEMO.filter(t=>!t.group)];
+  document.getElementById('connLabel').textContent='Demo data ('+DEMO.filter(t=>!t.group).length+' tasks)';
+  populateDropdowns();render();
+}
+
+/* Try loading from hash on startup, fall back to demo data */
+if(!loadFromHash()){loadDemoData();}
 
 /* Also reload when hash changes (Power Apps updates src) */
 window.addEventListener('hashchange',loadFromHash);
