@@ -78,6 +78,8 @@ input[type=search]{width:110px}
 #leftPane .pane-head,#rightPane .pane-head{flex-shrink:0;overflow:hidden;background:var(--gray-50)}
 #leftPane .pane-body,#rightPane .pane-body{flex:1;overflow:auto;min-height:0;position:relative}
 #leftPane table,#rightPane table{border-collapse:collapse;table-layout:fixed}
+#leftHeadTable{width:max-content;min-width:100%}
+#leftTable{width:max-content;min-width:100%}
 #leftPane thead th,#rightPane thead th{position:sticky;top:0;z-index:20;background:var(--gray-50);border-bottom:1px solid var(--border-md);font-size:11px;font-weight:600;color:var(--gray-600);padding:0 8px;height:26px;white-space:nowrap;text-align:left;text-transform:uppercase;letter-spacing:.03em}
 #leftPane tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:34px;max-height:34px;line-height:30px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
 #rightPane tbody td{padding:0;border-bottom:1px solid var(--border);height:34px;max-height:34px;vertical-align:top;box-sizing:border-box}
@@ -273,7 +275,7 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
   <!-- LEFT PANE: data columns -->
   <div id="leftPane">
     <div class="pane-head" id="leftHead">
-      <table><thead><tr>
+      <table id="leftHeadTable"><colgroup id="leftColGroup"><col class="w-id"><col class="w-road"><col class="w-pm-col"><col class="w-team-col"><col class="w-dep"><col class="w-cost"><col class="w-start"><col class="w-end"><col class="w-dur"><col class="w-mile"><col class="w-prog"></colgroup><thead><tr>
         <th class="w-id">Recovery No.</th>
         <th class="w-road">Road / Assets</th>
         <th class="w-pm-col">PM</th>
@@ -288,7 +290,7 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
       </tr></thead></table>
     </div>
     <div class="pane-body" id="leftBody">
-      <table id="leftTable"><tbody id="leftTbody"></tbody></table>
+      <table id="leftTable"><colgroup><col class="w-id"><col class="w-road"><col class="w-pm-col"><col class="w-team-col"><col class="w-dep"><col class="w-cost"><col class="w-start"><col class="w-end"><col class="w-dur"><col class="w-mile"><col class="w-prog"></colgroup><tbody id="leftTbody"></tbody></table>
     </div>
   </div>
   <!-- DRAG PEG -->
@@ -1007,6 +1009,14 @@ function render(){
     leftTr.appendChild(tdP);
     leftTbody.appendChild(leftTr);
   });
+
+  /* Sync leftHead table width to leftTable so columns align */
+  const leftHeadTable=document.getElementById('leftHeadTable');
+  const leftTableEl=document.getElementById('leftTable');
+  if(leftHeadTable&&leftTableEl){
+    const w=leftTableEl.offsetWidth;
+    if(w>0) leftHeadTable.style.width=w+'px';
+  }
 
   document.getElementById('emptyState').style.display=rowCount===0?'flex':'none';
 
