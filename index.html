@@ -192,8 +192,12 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
 .edit-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
 .edit-id-badge{display:inline-block;background:#e8eef7;color:#185FA5;font-weight:700;font-size:12px;padding:2px 8px;border-radius:4px;margin-bottom:12px}
 
-#emptyState{display:none;flex-direction:column;align-items:center;justify-content:center;height:180px;color:var(--gray-400);gap:8px}
-#emptyState p{font-size:13px}
+/* loading overlay */
+#loadingOverlay{display:none;position:absolute;inset:0;background:rgba(255,255,255,0.85);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:12px;backdrop-filter:blur(2px)}
+#loadingOverlay.active{display:flex}
+#loadingBar{width:220px;height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden}
+#loadingBarFill{height:100%;width:0%;background:#6b3fa0;border-radius:3px;transition:width .1s linear}
+#loadingText{font-size:13px;color:var(--gray-600);font-family:inherit}
 </style>
 </head>
 <body>
@@ -260,6 +264,12 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
 </div>
 
 <div id="ganttWrap">
+  <!-- Loading overlay -->
+  <div id="loadingOverlay">
+    <div id="loadingText">Loading…</div>
+    <div id="loadingBar"><div id="loadingBarFill"></div></div>
+  </div>
+
   <!-- LEFT PANE: data columns -->
   <div id="leftPane">
     <div class="pane-head" id="leftHead">
@@ -591,6 +601,14 @@ function getFiltered(){
 
 /* render */
 function render(){
+  /* Show loading overlay */
+  const _ov=document.getElementById('loadingOverlay');
+  const _txt=document.getElementById('loadingText');
+  const _fill=document.getElementById('loadingBarFill');
+  if(_ov) _ov.classList.add('active');
+  if(_txt) _txt.textContent='Loading…';
+  if(_fill) _fill.style.width='5%';
+
   const range=getRange(),tw=totalW(range);
   buildHeader(range);
   const filtered=getFiltered();
@@ -615,6 +633,10 @@ function render(){
   });
   /* Add any tasks with no parent at the end */
   childRows.filter(t=>!t.parent).forEach(t=>groupFirst.push(t));
+
+  const totalRows=groupFirst.length;
+  if(_txt) _txt.textContent=`Loading 0 / ${totalRows} rows…`;
+
   /* visIds must include ALL task ids so parent checks work */
   const visIds=new Set(tasks.map(t=>t.id));
   const tbody=document.getElementById('ganttBody');
@@ -628,9 +650,15 @@ function render(){
   const barPos={};
   const visibleRows=[];   /* ordered list of task ids as rendered */
 
-  groupFirst.forEach(t=>{
-    if(t.parent&&!visIds.has(t.parent))return;
-    if(t.parent&&collapsed[t.parent])return;
+  const ROW_CAP=300;
+  groupFirst.forEach((t,_i)=>{
+    if(!t.group && rowCount>=ROW_CAP && !document.getElementById('fHasDate').checked) return;
+    /* Update progress bar every 20 rows */
+    if(totalRows>50 && rowCount%20===0){
+      const pct=Math.round(5+90*(rowCount/Math.max(totalRows,1)));
+      if(_fill) _fill.style.width=pct+'%';
+      if(_txt) _txt.textContent=`Loading ${rowCount} / ${totalRows} rows…`;
+    }
     visibleRows.push(t.id);
     rowCount++;
     const gc=groupColor(t);
@@ -981,6 +1009,27 @@ function render(){
   });
 
   document.getElementById('emptyState').style.display=rowCount===0?'flex':'none';
+
+  /* Hide loading overlay */
+  if(_fill) _fill.style.width='100%';
+  if(_txt) _txt.textContent=`${rowCount} rows loaded`;
+  setTimeout(()=>{if(_ov) _ov.classList.remove('active');},300);
+
+  /* Warn if dataset is large and filter is loose */
+  let capNotice=document.getElementById('_capNotice');
+  if(!capNotice){
+    capNotice=document.createElement('div');
+    capNotice.id='_capNotice';
+    capNotice.style.cssText='display:none;padding:6px 14px;background:#fff3cd;color:#856404;font-size:12px;border-bottom:1px solid #ffc107;flex-shrink:0';
+    document.getElementById('toolbar').after(capNotice);
+  }
+  if(rowCount>=300&&!document.getElementById('fHasDate').checked){
+    capNotice.style.display='block';
+    capNotice.textContent=`Showing first 300 of ${rowCount} rows. Use filters or "Has start date" to narrow results.`;
+  } else {
+    capNotice.style.display='none';
+  }
+
   syncRowHeights();
 
   /* ── Draw dependency connector lines after DOM is built ── */
@@ -1183,7 +1232,18 @@ function setView(v){
   if(sel&&sel.value!==v)sel.value=v;
   render();
 }
-function applyFilters(){render()}
+let _filterTimer=null;
+function applyFilters(){
+  /* Show loading overlay immediately */
+  const ov=document.getElementById('loadingOverlay');
+  const txt=document.getElementById('loadingText');
+  const fill=document.getElementById('loadingBarFill');
+  if(ov){ov.classList.add('active');}
+  if(txt){txt.textContent='Applying filters…';}
+  if(fill){fill.style.width='0%';}
+  clearTimeout(_filterTimer);
+  _filterTimer=setTimeout(()=>render(),80);
+}
 
 function clearFilters(){
   document.getElementById('fGroup').value='';
@@ -1360,11 +1420,22 @@ function syncRowHeights(){
 /* ── Sync vertical scroll between left and right panes ── */
 (function(){
   let syncing=false;
-  function syncV(src,dst){src.addEventListener('scroll',function(){if(syncing)return;syncing=true;dst.scrollTop=src.scrollTop;syncing=false;});}
+  function syncV(src,dst){
+    src.addEventListener('scroll',function(){
+      if(syncing)return;syncing=true;
+      dst.scrollTop=src.scrollTop;
+      syncing=false;
+    });
+  }
   const lb=document.getElementById('leftBody'),rb=document.getElementById('rightBody');
   const lh=document.getElementById('leftHead'),rh=document.getElementById('rightHead');
   if(lb&&rb){syncV(lb,rb);syncV(rb,lb);}
-  if(lb&&lh){lb.addEventListener('scroll',function(){lh.scrollLeft=lb.scrollLeft;});}
+  /* Hide left pane scrollbar — right pane scrollbar drives both */
+  if(lb){
+    lb.style.overflowY='hidden';
+    lb.style.overflowX='auto';
+  }
+  if(lh){lb.addEventListener('scroll',function(){lh.scrollLeft=lb.scrollLeft;});}
   if(rb&&rh){rb.addEventListener('scroll',function(){rh.scrollLeft=rb.scrollLeft;});}
 })();
 
@@ -1447,20 +1518,7 @@ if(!loadFromHash()){loadDemoData();}
 /* Also reload when hash changes (Power Apps updates src) */
 window.addEventListener('hashchange',loadFromHash);
 
-
-
 /* ── Sync row heights between left and right panes ── */
-
-/* ── Sync vertical scroll between left and right panes ── */
-(function(){
-  let syncing=false;
-  function syncV(src,dst){src.addEventListener('scroll',function(){if(syncing)return;syncing=true;dst.scrollTop=src.scrollTop;syncing=false;});}
-  const lb=document.getElementById('leftBody'),rb=document.getElementById('rightBody');
-  const lh=document.getElementById('leftHead'),rh=document.getElementById('rightHead');
-  if(lb&&rb){syncV(lb,rb);syncV(rb,lb);}
-  if(lb&&lh){lb.addEventListener('scroll',function(){lh.scrollLeft=lb.scrollLeft;});}
-  if(rb&&rh){rb.addEventListener('scroll',function(){rh.scrollLeft=rb.scrollLeft;});}
-})();
 
 /* ── Split peg drag logic ── */
 (function(){
