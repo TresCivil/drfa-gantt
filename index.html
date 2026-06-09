@@ -80,8 +80,8 @@ input[type=search]{width:110px}
 #leftPane table,#rightPane table{border-collapse:collapse;table-layout:fixed}
 #leftHeadTable{width:max-content;min-width:100%}
 #leftTable{width:max-content;min-width:100%}
-#leftPane thead th,#rightPane thead th{position:sticky;top:0;z-index:20;background:var(--gray-50);border-bottom:1px solid var(--border-md);font-size:11px;font-weight:600;color:var(--gray-600);padding:0 8px;height:26px;white-space:nowrap;text-align:left;text-transform:uppercase;letter-spacing:.03em}
-#leftPane tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:34px;max-height:34px;line-height:30px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
+#leftPane thead th,#rightPane thead th{position:sticky;top:0;z-index:20;background:var(--gray-50);border-bottom:1px solid var(--border-md);font-size:11px;font-weight:600;color:var(--gray-600);padding:0 6px;height:26px;white-space:nowrap;text-align:center;text-transform:uppercase;letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis}
+#leftPane tbody td{padding:2px 6px;border-bottom:1px solid var(--border);height:34px;max-height:34px;line-height:30px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;text-align:center}
 #rightPane tbody td{padding:0;border-bottom:1px solid var(--border);height:34px;max-height:34px;vertical-align:top;box-sizing:border-box}
 #leftPane tbody tr,#rightPane tbody tr{height:34px;max-height:34px}
 #leftPane tbody tr:hover td,#rightPane tbody tr:hover td{background:#f4f6fb}
@@ -110,7 +110,8 @@ tr.group-epar:hover td{background:#dff0e6}
 .expand-btn{cursor:pointer;font-size:10px;margin-right:4px;user-select:none;color:var(--gray-400)}
 
 /* column widths */
-.w-id{width:100px}.w-road{width:130px}.w-pm-col{width:90px}.w-team-col{width:110px}.w-date{width:110px}.w-start{width:115px}.w-end{width:115px}.w-dur{width:62px;text-align:center}.w-prog{width:90px}.w-cost{width:90px}.w-dep{width:110px}.w-mile{width:70px;text-align:center}.w-pm{width:0;padding:0;overflow:hidden}
+.w-id{width:100px}.w-road{width:130px}.w-pm-col{width:90px}.w-team-col{width:140px}.w-date{width:110px}.w-start{width:115px}.w-end{width:115px}.w-dur{width:62px;text-align:center}.w-prog{width:90px}.w-cost{width:90px}.w-dep{width:110px}.w-mile{width:70px;text-align:center}.w-pm{width:0;padding:0;overflow:hidden}
+td.w-road{text-align:left!important}
 
 /* inline editable cells */
 .cell-edit{width:100%;height:100%;box-sizing:border-box;font-family:inherit;font-size:12px;border:none;outline:none;background:transparent;cursor:text;padding:0;color:inherit}
