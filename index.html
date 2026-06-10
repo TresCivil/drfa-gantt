@@ -1331,84 +1331,105 @@ function exportPDF(){
   btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Preparing…';
   btn.style.pointerEvents='none'; btn.style.opacity='0.7';
 
-  const leftPane  = document.getElementById('leftPane');
-  const rightPane = document.getElementById('rightPane');
-  const leftBody  = document.getElementById('leftBody');
-  const rightBody = document.getElementById('rightBody');
-  const leftHead  = document.getElementById('leftHead');
-  const rightHead = document.getElementById('rightHead');
-  const wrap      = document.getElementById('ganttWrap');
-  const app       = document.getElementById('app');
-  const leftTable = document.getElementById('leftTable');
-  const ganttTable= document.getElementById('ganttTable');
-  const chartHeadTable = document.getElementById('chartHeadTable');
+  /* Build a single merged table so left+right rows are guaranteed aligned */
+  const leftRows   = Array.from(document.querySelectorAll('#leftTbody tr'));
+  const rightRows  = Array.from(document.querySelectorAll('#ganttBody tr'));
+  const leftHRow   = document.querySelector('#leftHeadTable thead tr');
+  const rightHCell = document.querySelector('#chartHeaderCell');
 
-  const prev={
-    leftW:leftPane.style.width, leftMax:leftPane.style.maxWidth, leftFlex:leftPane.style.flex,
-    rightFlex:rightPane.style.flex, rightW:rightPane.style.width, rightOv:rightPane.style.overflow,
-    wrapH:wrap.style.height, wrapOv:wrap.style.overflow,
-    leftBodyH:leftBody.style.height, leftBodyOv:leftBody.style.overflow,
-    rightBodyH:rightBody.style.height, rightBodyOv:rightBody.style.overflow,
-    leftHeadOv:leftHead.style.overflow, rightHeadOv:rightHead.style.overflow,
-    chartTW:chartHeadTable?chartHeadTable.style.width:'',
-    appH:app.style.height, appOv:app.style.overflow,
-  };
+  const printDiv = document.createElement('div');
+  printDiv.id = '__printDiv';
+  printDiv.style.cssText = 'display:none;width:100%;font-family:Arial,sans-serif;';
 
-  function restore(){
-    leftPane.style.width=prev.leftW; leftPane.style.maxWidth=prev.leftMax; leftPane.style.flex=prev.leftFlex||'';
-    rightPane.style.flex=prev.rightFlex||'1'; rightPane.style.width=prev.rightW; rightPane.style.overflow=prev.rightOv;
-    wrap.style.height=prev.wrapH; wrap.style.overflow=prev.wrapOv;
-    leftBody.style.height=prev.leftBodyH; leftBody.style.overflow=prev.leftBodyOv;
-    rightBody.style.height=prev.rightBodyH; rightBody.style.overflow=prev.rightBodyOv;
-    leftHead.style.overflow=prev.leftHeadOv; rightHead.style.overflow=prev.rightHeadOv;
-    if(chartHeadTable) chartHeadTable.style.width=prev.chartTW;
-    app.style.height=prev.appH; app.style.overflow=prev.appOv;
-    const inj=document.getElementById('__printStyle');
-    if(inj) inj.remove();
-    btn.innerHTML=origHTML; btn.style.pointerEvents=''; btn.style.opacity='';
+  const tbl = document.createElement('table');
+  tbl.style.cssText = 'border-collapse:collapse;width:100%;table-layout:fixed;';
+
+  /* ── Header ── */
+  const thead = document.createElement('thead');
+  const htr   = document.createElement('tr');
+
+  if(leftHRow){
+    Array.from(leftHRow.cells).forEach(th=>{
+      const c = th.cloneNode(true);
+      c.style.cssText = `background:#323232;color:white;font-size:10px;font-weight:700;
+        padding:3px 5px;text-align:center;border:1px solid #555;
+        white-space:nowrap;text-transform:uppercase;width:${th.offsetWidth}px;`;
+      htr.appendChild(c);
+    });
   }
+  /* Chart header */
+  const chartTh = document.createElement('th');
+  const ganttTbl = document.getElementById('ganttTable');
+  const rightBodyEl = document.getElementById('rightBody');
+  const chartW = ganttTbl ? ganttTbl.scrollWidth : (rightBodyEl ? rightBodyEl.scrollWidth : 800);
+  chartTh.style.cssText = `background:#2d2d2d;color:white;padding:0;border:1px solid #555;
+    width:${chartW}px;overflow:hidden;`;
+  if(rightHCell) chartTh.innerHTML = rightHCell.outerHTML;
+  htr.appendChild(chartTh);
+  thead.appendChild(htr);
+  tbl.appendChild(thead);
 
-  /* Expand panes to full content */
-  const leftW  = (leftTable  ? leftTable.scrollWidth  : leftPane.scrollWidth)  + 4;
-  const rightW = (ganttTable ? ganttTable.scrollWidth : rightPane.scrollWidth) + 4;
-  const bodyH  = Math.max(leftBody.scrollHeight, rightBody.scrollHeight);
+  /* ── Body rows ── */
+  const tbody2 = document.createElement('tbody');
+  const len = Math.min(leftRows.length, rightRows.length);
+  for(let i=0;i<len;i++){
+    const tr = document.createElement('tr');
+    tr.className = leftRows[i].className || '';
+    const rowH = Math.max(leftRows[i].offsetHeight, rightRows[i].offsetHeight, 28);
 
-  app.style.height='auto'; app.style.overflow='visible';
-  wrap.style.height='auto'; wrap.style.overflow='visible';
-  leftPane.style.width=leftW+'px'; leftPane.style.maxWidth='none'; leftPane.style.flex='none';
-  rightPane.style.flex='none'; rightPane.style.width=rightW+'px'; rightPane.style.overflow='visible';
-  leftBody.style.height=bodyH+'px'; leftBody.style.overflow='visible';
-  rightBody.style.height=bodyH+'px'; rightBody.style.overflow='visible';
-  leftHead.style.overflow='visible'; rightHead.style.overflow='visible';
-  if(chartHeadTable) chartHeadTable.style.width=rightW+'px';
+    Array.from(leftRows[i].cells).forEach(td=>{
+      const c = td.cloneNode(true);
+      c.style.cssText = `padding:2px 5px;border:1px solid #e8e8e8;font-size:10px;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+        vertical-align:middle;height:${rowH}px;`;
+      tr.appendChild(c);
+    });
+    const rtd = rightRows[i].cells[0];
+    if(rtd){
+      const c = rtd.cloneNode(true);
+      c.style.cssText = `padding:0;border:1px solid #e8e8e8;
+        vertical-align:top;height:${rowH}px;width:${chartW}px;`;
+      tr.appendChild(c);
+    }
+    tbody2.appendChild(tr);
+  }
+  tbl.appendChild(tbody2);
+  printDiv.appendChild(tbl);
+  document.body.appendChild(printDiv);
+
+  /* Zoom to fit A3 landscape width */
+  const leftTblW = document.getElementById('leftTable') ? document.getElementById('leftTable').scrollWidth : 900;
+  const totalW   = leftTblW + chartW;
+  const zoom     = Math.min(1550 / totalW, 1);
+
+  const inj = document.createElement('style');
+  inj.id = '__printStyle';
+  inj.textContent = `
+    @media print {
+      @page { size: A3 landscape; margin: 5mm; }
+      body > *:not(#__printDiv) { display: none !important; }
+      #__printDiv { display: block !important; }
+      html { zoom: ${zoom}; }
+      tr.group-irw td { background: #eef2fa !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      tr.group-ew  td { background: #f0ecfb !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      tr.group-epar td { background: #ebf5ee !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    }
+  `;
+  document.head.appendChild(inj);
 
   setTimeout(()=>{
-    const totalW = app.scrollWidth;
-
-    /* A3 landscape at 96dpi = 1587px wide.
-       Calculate zoom so full width fits on one page horizontally.
-       Rows that overflow vertically will naturally flow to next pages. */
-    const printableW = 1587;
-    const zoom = Math.min(printableW / totalW, 1);
-
-    /* Inject print style with exact page size and zoom */
-    const inj=document.createElement('style');
-    inj.id='__printStyle';
-    inj.textContent=`
-      @media print {
-        @page { size: A3 landscape; margin: 8mm; }
-        html { zoom: ${zoom}; }
-        body { width: ${totalW}px !important; overflow: visible !important; }
-      }
-    `;
-    document.head.appendChild(inj);
-
+    printDiv.style.display = 'block';
     setTimeout(()=>{
       window.print();
-      setTimeout(restore, 2000);
-    }, 300);
-  }, 400);
+      setTimeout(()=>{
+        printDiv.remove(); inj.remove();
+        btn.innerHTML=origHTML; btn.style.pointerEvents=''; btn.style.opacity='';
+      }, 2000);
+    }, 400);
+  }, 200);
 }
+
 /* ── Sync row heights between left and right panes ── */
 function syncRowHeights(){
   const leftRows=document.querySelectorAll('#leftTbody tr');
