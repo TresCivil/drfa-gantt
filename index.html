@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gantt Chart — Power Apps Embedded</title>
-<!-- GANTT_TEMPLATE_VERSION 10 (2026-07-08) -->
+<!-- GANTT_TEMPLATE_VERSION 12 (2026-07-09) -->
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:var(--font-family);font-size:var(--fs-base);background:var(--bg);color:var(--text-body);overflow:hidden}
@@ -36,6 +36,7 @@ body.dark{
   --grouprow-irw:#122a26;--grouprow-irw-hover:#173530;
   --grouprow-epar:#231a3c;--grouprow-epar-hover:#2c2149;
   --dep-text:#E5E7EB;
+  --row-hover:#1c2430;
 }
 #app{display:flex;flex-direction:column;height:100vh;background:var(--bg)}
 
@@ -105,7 +106,10 @@ input[type=search]{width:110px}
 #leftPane tbody td{padding:2px 6px;border-bottom:1px solid var(--border);height:34px;max-height:34px;line-height:30px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;text-align:center}
 #rightPane tbody td{padding:0;border-bottom:1px solid var(--border);height:34px;max-height:34px;vertical-align:top;box-sizing:border-box}
 #leftPane tbody tr,#rightPane tbody tr{height:34px;max-height:34px}
-#leftPane tbody tr:hover td,#rightPane tbody tr:hover td{background:var(--tint-gray)}
+#leftPane tbody tr:hover td,#rightPane tbody tr:hover td{background:var(--row-hover)}
+#leftPane tbody tr.cat-ew:hover td,#rightPane tbody tr.cat-ew:hover td{background:var(--rowhover-ew)}
+#leftPane tbody tr.cat-irw:hover td,#rightPane tbody tr.cat-irw:hover td{background:var(--rowhover-irw)}
+#leftPane tbody tr.cat-epar:hover td,#rightPane tbody tr.cat-epar:hover td{background:var(--rowhover-epar)}
 /* split peg */
 #splitPeg{width:6px;flex-shrink:0;cursor:col-resize;background:var(--gray-200);position:relative;z-index:50;transition:background .15s;display:flex;align-items:center;justify-content:center}
 #splitPeg:hover,#splitPeg.dragging{background:var(--accent)}
@@ -116,7 +120,7 @@ table{border-collapse:collapse;table-layout:fixed;width:max-content;min-width:10
 thead th{position:sticky;top:0;z-index:20;background:var(--gray-50);border-bottom:1px solid var(--border-md);font-size:var(--fs-label);font-weight:600;color:var(--gray-600);padding:0 8px;height:26px;white-space:nowrap;text-align:left;text-transform:uppercase;letter-spacing:.03em}
 thead th.th-chart{padding:0;background:var(--gray-50)}
 tbody tr{transition:background .07s}
-tbody tr:hover td{background:var(--tint-gray)}
+tbody tr:hover td{background:var(--row-hover)}
 tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:34px;box-sizing:border-box;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* group rows */
@@ -388,7 +392,7 @@ body.dark .bar-label{color:#ffffff}
 </div>
 
 <script>
-console.log("DRFA gantt GANTT_TEMPLATE_VERSION 10");
+console.log("DRFA gantt GANTT_TEMPLATE_VERSION 12");
 /* ═══════════════════════════════════════════════════════════════
    GANTT — Power Apps Canvas App Embedded Component
    postMessage IN:  { type:'LOAD_DATA', tasks:[...] }
@@ -690,6 +694,7 @@ function render(){
     const gc=groupColor(t);
     const tr=document.createElement('tr');
     if(t.group) tr.className='group-row group-'+t.id.toLowerCase();
+    else tr.className='cat-'+String((t.groupKey||'')).toLowerCase().replace(/[^a-z0-9_-]/g,'');
     tr.onclick=()=>{
       postUp({type:'TASK_SELECTED',task:t});
     };
@@ -1019,6 +1024,7 @@ function render(){
     /* Left data row */
     const leftTr=document.createElement('tr');
     if(t.group) leftTr.className='group-row group-'+t.id.toLowerCase();
+    else leftTr.className='cat-'+String((t.groupKey||'')).toLowerCase().replace(/[^a-z0-9_-]/g,'');
     leftTr.onclick=()=>{ postUp({type:'TASK_SELECTED',task:t}); };
     leftTr.appendChild(tdId);
     leftTr.appendChild(tdR);
@@ -1527,7 +1533,7 @@ function gGet(o,k){
 }
 function applyGanttOptions(o){
   if(!o||typeof o!=='object')return;
-  var root=document.documentElement.style;
+  var root=document.body.style;
   var dm=gGet(o,'darkMode');
   if(dm!=null)document.body.classList.toggle('dark',dm===true||dm==='true'||dm===1||dm==='1');
   var ff=gGet(o,'fontFamily');
@@ -1556,6 +1562,26 @@ function applyGanttOptions(o){
     if(bgv)root.setProperty('--bg',String(bgv));
     var pv=typeof bgOpt==='object'?(darkBg?gGet(bgOpt,'panelDark'):gGet(bgOpt,'panelLight')):null;
     if(pv)root.setProperty('--gray-50',String(pv));
+  }
+  var rh=gGet(o,'rowHoverColor');
+  if(rh!=null){
+    var darkRh=document.body.classList.contains('dark');
+    var pick=function(v){
+      if(v==null)return null;
+      if(typeof v==='string')return v;
+      return darkRh?gGet(v,'dark'):gGet(v,'light');
+    };
+    var perCat=false;
+    if(typeof rh==='object'){
+      ['EW','IRW','EPAR'].forEach(function(cat){
+        var v=pick(gGet(rh,cat));
+        if(v){perCat=true;root.setProperty('--rowhover-'+cat.toLowerCase(),String(v));}
+      });
+    }
+    if(!perCat){
+      var rhv=pick(rh);
+      if(rhv)root.setProperty('--row-hover',String(rhv));
+    }
   }
   var gr=gGet(o,'groupRowColors');if(gr==null)gr=gGet(o,'categoryRowColors');
   if(gr&&typeof gr==='object'){
