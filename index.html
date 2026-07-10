@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gantt Chart — Power Apps Embedded</title>
-<!-- GANTT_TEMPLATE_VERSION 8 (2026-07-08) -->
+<!-- GANTT_TEMPLATE_VERSION 9 (2026-07-08) -->
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:var(--font-family);font-size:var(--fs-base);background:var(--bg);color:var(--text-body);overflow:hidden}
@@ -388,7 +388,7 @@ body.dark .bar-label{color:#ffffff}
 </div>
 
 <script>
-console.log("DRFA gantt GANTT_TEMPLATE_VERSION 8");
+console.log("DRFA gantt GANTT_TEMPLATE_VERSION 9");
 /* ═══════════════════════════════════════════════════════════════
    GANTT — Power Apps Canvas App Embedded Component
    postMessage IN:  { type:'LOAD_DATA', tasks:[...] }
@@ -1548,6 +1548,14 @@ function applyGanttOptions(o){
       var v=gGet(fs,key);
       if(v!=null&&+v>0)root.setProperty(m[key],(+v)+'px');
     }
+  }
+  var bgOpt=gGet(o,'background');
+  if(bgOpt!=null){
+    var darkBg=document.body.classList.contains('dark');
+    var bgv=typeof bgOpt==='string'?bgOpt:(darkBg?gGet(bgOpt,'dark'):gGet(bgOpt,'light'));
+    if(bgv)root.setProperty('--bg',String(bgv));
+    var pv=typeof bgOpt==='object'?(darkBg?gGet(bgOpt,'panelDark'):gGet(bgOpt,'panelLight')):null;
+    if(pv)root.setProperty('--gray-50',String(pv));
   }
   var gr=gGet(o,'groupRowColors');if(gr==null)gr=gGet(o,'categoryRowColors');
   if(gr&&typeof gr==='object'){
