@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gantt Chart — Power Apps Embedded</title>
-<!-- GANTT_TEMPLATE_VERSION 3 (2026-07-08) -->
+<!-- GANTT_TEMPLATE_VERSION 5 (2026-07-08) -->
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:var(--font-family);font-size:var(--fs-base);background:var(--bg);color:var(--text-body);overflow:hidden}
@@ -266,7 +266,7 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
     <input type="checkbox" id="fHasDate" checked onchange="applyFilters()" style="width:14px;height:14px">
     Has start date
   </label>
-  <button onclick="clearFilters()" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 10px;border:1px solid var(--border-md);border-radius:var(--radius);background:var(--bg);color:var(--gray-600);cursor:pointer;white-space:nowrap" onmouseover="this.style.background='var(--tint-red)';this.style.color='#e24b4a';this.style.borderColor='#e24b4a'" onmouseout="this.style.background='#fff';this.style.color='var(--gray-600)';this.style.borderColor='var(--border-md)'">✕ Clear filters</button>
+  <button onclick="clearFilters()" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 10px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--accent);color:var(--on-accent);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;font-weight:600" onmouseover="this.style.background='#1D4ED8';this.style.borderColor='#1D4ED8'" onmouseout="this.style.background='var(--accent)';this.style.borderColor='var(--accent)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Reset Filters</button>
   <div class="tb-sep"></div>
   <div class="legend">
     <div class="leg-item"><div class="leg-dot" style="background:#14B8A6"></div>IRW</div>
@@ -277,9 +277,9 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
   <div class="status-dot" id="statusDot"></div>
   <span id="connLabel">Demo data</span>
   <div class="tb-sep"></div>
-  <button id="pdfBtn" onclick="exportPDF()" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 11px;border:1px solid var(--gray-800);border-radius:var(--radius);background:var(--gray-800);color:#fff;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;font-weight:500" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,18 15,15"/></svg>
-    Export PDF
+  <button id="pdfBtn" onclick="exportPDF()" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 11px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--accent);color:var(--on-accent);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;font-weight:600" onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='var(--accent)'">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/><polyline points="8,7 12,3 16,7"/><line x1="12" y1="3" x2="12" y2="14"/></svg>
+    Export
   </button>
 </div>
 
@@ -383,7 +383,7 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
 </div>
 
 <script>
-console.log("DRFA gantt GANTT_TEMPLATE_VERSION 3");
+console.log("DRFA gantt GANTT_TEMPLATE_VERSION 5");
 /* ═══════════════════════════════════════════════════════════════
    GANTT — Power Apps Canvas App Embedded Component
    postMessage IN:  { type:'LOAD_DATA', tasks:[...] }
@@ -650,7 +650,7 @@ function render(){
       });
     if(children.length === 0) return;
     groupFirst.push(g);
-    children.forEach(t=>groupFirst.push(t));
+    if(!collapsed[g.id]) children.forEach(t=>groupFirst.push(t));
   });
   /* Add any tasks with no parent at the end */
   childRows.filter(t=>!t.parent).forEach(t=>groupFirst.push(t));
