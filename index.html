@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gantt Chart — Power Apps Embedded</title>
-<!-- GANTT_TEMPLATE_VERSION 5 (2026-07-08) -->
+<!-- GANTT_TEMPLATE_VERSION 7 (2026-07-08) -->
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:var(--font-family);font-size:var(--fs-base);background:var(--bg);color:var(--text-body);overflow:hidden}
@@ -32,6 +32,10 @@ body.dark{
   --blue-light:#16233f;--purple-light:#231a3c;--green-light:#122a1d;
   --tint-purple:#231a3c;--tint-red:#3a1c1c;--tint-blue:#16233f;
   --tint-green:#122a1d;--tint-gray:#1c2430;
+  --grouprow-ew:#16233f;--grouprow-ew-hover:#1c2c4e;
+  --grouprow-irw:#122a26;--grouprow-irw-hover:#173530;
+  --grouprow-epar:#231a3c;--grouprow-epar-hover:#2c2149;
+  --dep-text:#E5E7EB;
 }
 #app{display:flex;flex-direction:column;height:100vh;background:var(--bg)}
 
@@ -85,9 +89,9 @@ input[type=search]{width:110px}
   #leftPane .pane-head, #rightPane .pane-head { overflow: visible !important; position: static !important; }
   #leftPane .pane-body, #rightPane .pane-body { overflow: visible !important; height: auto !important; flex: none !important; }
   #leftPane thead th, #rightPane thead th { position: static !important; background: #f0f0f0 !important; }
-  tr.group-irw td { background: var(--tint-blue) !important; }
-  tr.group-ew  td { background: var(--tint-purple) !important; }
-  tr.group-epar td { background: var(--tint-green) !important; }
+  tr.group-irw td { background: var(--grouprow-irw) !important; }
+  tr.group-ew  td { background: var(--grouprow-ew) !important; }
+  tr.group-epar td { background: var(--grouprow-epar) !important; }
 }
 #ganttWrap{flex:1;display:flex;overflow:hidden;position:relative}
 #leftPane{display:flex;flex-direction:column;overflow:hidden;border-right:3px solid var(--border-md);flex-shrink:0;width:55%;max-width:75%;min-width:180px}
@@ -117,12 +121,12 @@ tbody td{padding:2px 8px;border-bottom:1px solid var(--border);height:34px;box-s
 
 /* group rows */
 tr.group-row td{font-weight:700;border-bottom:1px solid var(--border-md)}
-tr.group-irw td{background:var(--tint-blue)}
-tr.group-ew  td{background:var(--tint-purple)}
-tr.group-epar td{background:var(--tint-green)}
-tr.group-irw:hover td{background:#e4ecf7}
-tr.group-ew:hover  td{background:#e8e2f9}
-tr.group-epar:hover td{background:#dff0e6}
+tr.group-irw td{background:var(--grouprow-irw)}
+tr.group-ew  td{background:var(--grouprow-ew)}
+tr.group-epar td{background:var(--grouprow-epar)}
+tr.group-irw:hover td{background:var(--grouprow-irw-hover)}
+tr.group-ew:hover  td{background:var(--grouprow-ew-hover)}
+tr.group-epar:hover td{background:var(--grouprow-epar-hover)}
 
 .expand-btn{cursor:pointer;font-size:var(--fs-axis);margin-right:4px;user-select:none;color:var(--gray-400)}
 
@@ -383,7 +387,7 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
 </div>
 
 <script>
-console.log("DRFA gantt GANTT_TEMPLATE_VERSION 5");
+console.log("DRFA gantt GANTT_TEMPLATE_VERSION 7");
 /* ═══════════════════════════════════════════════════════════════
    GANTT — Power Apps Canvas App Embedded Component
    postMessage IN:  { type:'LOAD_DATA', tasks:[...] }
@@ -763,7 +767,7 @@ function render(){
         } else {
           vals.forEach(v=>{
             const tag=document.createElement('span');
-            tag.style.cssText='background:var(--blue-light);color:var(--blue);border-radius:3px;padding:0 4px;font-size:var(--fs-axis);white-space:nowrap';
+            tag.style.cssText='background:var(--blue-light);color:var(--dep-text);border-radius:3px;padding:0 4px;font-size:var(--fs-axis);white-space:nowrap';
             tag.textContent=v;depDisplay.appendChild(tag);
           });
         }
@@ -1543,6 +1547,20 @@ function applyGanttOptions(o){
       var v=gGet(fs,key);
       if(v!=null&&+v>0)root.setProperty(m[key],(+v)+'px');
     }
+  }
+  var gr=gGet(o,'groupRowColors');if(gr==null)gr=gGet(o,'categoryRowColors');
+  if(gr&&typeof gr==='object'){
+    var darkOn=document.body.classList.contains('dark');
+    ['EW','IRW','EPAR'].forEach(function(cat){
+      var v=gGet(gr,cat);
+      if(v==null)return;
+      if(typeof v==='object')v=darkOn?gGet(v,'dark'):gGet(v,'light');
+      if(v){
+        var base='--grouprow-'+cat.toLowerCase();
+        root.setProperty(base,String(v));
+        root.setProperty(base+'-hover',String(v));
+      }
+    });
   }
 }
 
