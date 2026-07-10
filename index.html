@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gantt Chart — Power Apps Embedded</title>
-<!-- GANTT_TEMPLATE_VERSION 7 (2026-07-08) -->
+<!-- GANTT_TEMPLATE_VERSION 8 (2026-07-08) -->
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:var(--font-family);font-size:var(--fs-base);background:var(--bg);color:var(--text-body);overflow:hidden}
@@ -169,6 +169,7 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
 .bar-progress{position:absolute;left:0;top:0;height:100%;background:var(--bg);pointer-events:none}
 .bar-pct{position:absolute;left:4px;font-size:var(--fs-axis);font-weight:600;color:#fff;white-space:nowrap;z-index:2;pointer-events:none;top:50%;transform:translateY(-50%)}
 .bar-label{position:absolute;font-size:var(--fs-axis);font-weight:400;color:#333;white-space:nowrap;z-index:2;pointer-events:none;top:50%;transform:translateY(-50%)}
+body.dark .bar-label{color:#ffffff}
 .resize-handle{position:absolute;right:0;top:0;width:7px;height:100%;cursor:ew-resize;z-index:5;opacity:0;transition:opacity .15s}
 .gantt-bar:hover .resize-handle{opacity:1}
 .resize-handle::after{content:'';position:absolute;right:2px;top:3px;bottom:3px;width:2px;background:rgba(255,255,255,.55);border-radius:1px}
@@ -387,7 +388,7 @@ td.td-chart{padding:0;position:relative;vertical-align:top;overflow:visible}
 </div>
 
 <script>
-console.log("DRFA gantt GANTT_TEMPLATE_VERSION 7");
+console.log("DRFA gantt GANTT_TEMPLATE_VERSION 8");
 /* ═══════════════════════════════════════════════════════════════
    GANTT — Power Apps Canvas App Embedded Component
    postMessage IN:  { type:'LOAD_DATA', tasks:[...] }
