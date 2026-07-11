@@ -41,25 +41,24 @@ body.dark{
 #app{display:flex;flex-direction:column;height:100vh;background:var(--bg)}
 
 /* toolbar */
-#toolbar{display:flex;align-items:center;gap:7px;padding:7px 12px;border-bottom:1px solid var(--border-md);background:var(--gray-50);flex-wrap:wrap;flex-shrink:0;min-height:44px}
-.seg{display:flex;border:1px solid var(--border-md);border-radius:var(--radius);overflow:hidden}
-.seg button{padding:3px 10px;font-size:var(--fs-control);font-family:inherit;background:var(--bg);color:var(--gray-600);border:none;border-right:1px solid var(--border-md);cursor:pointer;height:26px;transition:background .1s,color .1s}
+#toolbar{display:flex;flex-direction:column;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border-md);background:var(--gray-50);flex-shrink:0}
+.toolbar-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.tb-fixed{flex:0 0 auto}
+.filter-group{display:flex;align-items:center;gap:5px;flex:1 1 110px;min-width:88px}
+.filter-group.grow-search{flex:2 1 160px;min-width:120px}
+.filter-group select,.filter-group input[type=search],.filter-group input[type=date]{flex:1 1 auto;width:100%;min-width:0}
+.seg{display:flex;border:1px solid var(--border-md);border-radius:var(--radius);overflow:hidden;flex:0 1 220px;min-width:150px}
+.seg button{flex:1 1 0;padding:3px 6px;font-size:var(--fs-control);font-family:inherit;background:var(--bg);color:var(--gray-600);border:none;border-right:1px solid var(--border-md);cursor:pointer;height:26px;transition:background .1s,color .1s}
 .seg button:last-child{border-right:none}
 .seg button.active{background:var(--accent);color:var(--on-accent)}
 .seg button:hover:not(.active){background:var(--gray-100)}
-.tb-sep{width:1px;height:20px;background:var(--border-md);margin:0 1px}
-.tb-label{font-size:var(--fs-label);color:var(--gray-400);white-space:nowrap}
-select,input[type=search]{font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:var(--bg);color:var(--gray-800);outline:none}
+.tb-sep{width:1px;height:20px;background:var(--border-md);margin:0 1px;flex:0 0 auto}
+.tb-label{font-size:var(--fs-label);color:var(--gray-400);white-space:nowrap;flex:0 0 auto}
+select,input[type=search]{font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:var(--bg);color:var(--gray-800);outline:none;min-width:0}
 select:focus,input:focus{border-color:var(--accent)}
-input[type=search]{width:110px}
 .status-dot{width:7px;height:7px;border-radius:50%;background:var(--gray-200);flex-shrink:0}
-.status-dot.connected{background:#17B751}
+.status-dot.connected{background:#3B82F6}
 #connLabel{font-size:var(--fs-label);color:var(--gray-400)}
-
-/* legend */
-.legend{display:flex;align-items:center;gap:10px;margin-left:auto}
-.leg-item{display:flex;align-items:center;gap:4px;font-size:var(--fs-label);color:var(--gray-600)}
-.leg-dot{width:10px;height:10px;border-radius:2px}
 
 /* ── Print / PDF styles ── */
 @media print {
@@ -140,8 +139,8 @@ td.w-road{text-align:left!important}
 
 /* inline editable cells */
 .cell-edit{width:100%;height:100%;box-sizing:border-box;font-family:inherit;font-size:var(--fs-control);border:none;outline:none;background:transparent;cursor:text;padding:0;color:inherit}
-.cell-edit:focus{background:var(--bg);border:1.5px solid #6b3fa0;border-radius:3px;padding:0 4px;cursor:text}
 .cell-edit::placeholder{color:var(--gray-400);opacity:1}
+.cell-edit:focus{background:var(--bg);border:1.5px solid #6b3fa0;border-radius:3px;padding:0 4px;cursor:text}
 .cell-edit[type=date]{font-size:var(--fs-label);width:100%;cursor:pointer}
 .cell-edit[type=date]::-webkit-calendar-picker-indicator{opacity:0.6;cursor:pointer;margin-left:0;padding:0}
 .cell-edit[type=number]{font-size:var(--fs-control)}
@@ -234,64 +233,82 @@ body.dark .bar-label{color:#ffffff}
 <body>
 <div id="app">
 <div id="toolbar">
-  <span class="tb-label">Status</span>
-  <select id="viewSeg" onchange="setView(this.value)" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:var(--bg);color:var(--gray-800);outline:none">
-    <option value="All">All</option>
-    <option value="Open" selected>Open</option>
-    <option value="Close">Close</option>
-  </select>
-  <div class="seg" id="scaleSeg">
-    <button onclick="setScale('Days')">Days</button>
-    <button class="active" onclick="setScale('Weeks')">Weeks</button>
-    <button onclick="setScale('Months')">Months</button>
+  <div class="toolbar-row" id="toolbarRow1">
+    <div class="tb-fixed" style="display:flex;align-items:center;gap:6px">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="connLabel">Demo data</span>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="filter-group">
+      <span class="tb-label">Status</span>
+      <select id="viewSeg" onchange="setView(this.value)">
+        <option value="All">All</option>
+        <option value="Open" selected>Open</option>
+        <option value="Close">Close</option>
+      </select>
+    </div>
+    <div class="seg" id="scaleSeg">
+      <button onclick="setScale('Days')">Days</button>
+      <button class="active" onclick="setScale('Weeks')">Weeks</button>
+      <button onclick="setScale('Months')">Months</button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="filter-group">
+      <span class="tb-label">Category</span>
+      <select id="fGroup" onchange="applyFilters()">
+        <option value="">All</option>
+        <option value="IRW">IRW</option>
+        <option value="EW">EW</option>
+        <option value="EPAR">EPAR</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="tb-label">Recovery No.</span>
+      <select id="fId" onchange="applyFilters()"><option value="">All</option></select>
+    </div>
+    <div class="filter-group">
+      <span class="tb-label">Road</span>
+      <select id="fRoad" onchange="applyFilters()"><option value="">All roads</option></select>
+    </div>
   </div>
-  <div class="tb-sep"></div>
-  <span class="tb-label">Category</span>
-  <select id="fGroup" onchange="applyFilters()">
-    <option value="">All</option>
-    <option value="IRW">IRW</option>
-    <option value="EW">EW</option>
-    <option value="EPAR">EPAR</option>
-  </select>
-  <span class="tb-label">Recovery No.</span>
-  <select id="fId" onchange="applyFilters()"><option value="">All</option></select>
-  <span class="tb-label">Road</span>
-  <select id="fRoad" onchange="applyFilters()"><option value="">All roads</option></select>
-  <span class="tb-label">PM</span>
-  <select id="fPM" onchange="applyFilters()"><option value="">All PMs</option></select>
-  <span class="tb-label">Team</span>
-  <select id="fTeam" onchange="applyFilters()"><option value="">All teams</option></select>
-  <span class="tb-label">Progress</span>
-  <select id="fProg" onchange="applyFilters()">
-    <option value="">Any</option>
-    <option value="done">100%</option>
-    <option value="high">≥ 80%</option>
-    <option value="mid">40–79%</option>
-    <option value="low">&lt; 40%</option>
-  </select>
-  <span class="tb-label">Start From</span>
-  <input type="date" id="fDateFrom" onchange="applyFilters()" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:var(--bg);color:var(--gray-800);outline:none;width:130px;cursor:pointer">
-  <input type="search" id="fSearch" placeholder="Search…" oninput="applyFilters()">
-  <div class="tb-sep"></div>
-  <label style="display:flex;align-items:center;gap:5px;font-size:var(--fs-control);cursor:pointer;color:var(--gray-600)">
-    <input type="checkbox" id="fHasDate" checked onchange="applyFilters()" style="width:14px;height:14px">
-    Has start date
-  </label>
-  <button onclick="clearFilters()" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 10px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--accent);color:var(--on-accent);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;font-weight:600" onmouseover="this.style.background='#1D4ED8';this.style.borderColor='#1D4ED8'" onmouseout="this.style.background='var(--accent)';this.style.borderColor='var(--accent)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Reset Filters</button>
-  <div class="tb-sep"></div>
-  <div class="legend">
-    <div class="leg-item"><div class="leg-dot" style="background:#14B8A6"></div>IRW</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#3B82F6"></div>EW</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#5B03FF"></div>EPAR</div>
+  <div class="toolbar-row" id="toolbarRow2">
+    <div class="filter-group">
+      <span class="tb-label">PM</span>
+      <select id="fPM" onchange="applyFilters()"><option value="">All PMs</option></select>
+    </div>
+    <div class="filter-group">
+      <span class="tb-label">Team</span>
+      <select id="fTeam" onchange="applyFilters()"><option value="">All teams</option></select>
+    </div>
+    <div class="filter-group">
+      <span class="tb-label">Progress</span>
+      <select id="fProg" onchange="applyFilters()">
+        <option value="">Any</option>
+        <option value="done">100%</option>
+        <option value="high">≥ 80%</option>
+        <option value="mid">40–79%</option>
+        <option value="low">&lt; 40%</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="tb-label">Start From</span>
+      <input type="date" id="fDateFrom" onchange="applyFilters()" style="cursor:pointer">
+    </div>
+    <div class="filter-group grow-search">
+      <input type="search" id="fSearch" placeholder="Search…" oninput="applyFilters()">
+    </div>
+    <label class="tb-fixed" style="display:flex;align-items:center;gap:5px;font-size:var(--fs-control);cursor:pointer;color:var(--gray-600)">
+      <input type="checkbox" id="fHasDate" checked onchange="applyFilters()" style="width:14px;height:14px">
+      Has start date
+    </label>
+    <div class="tb-fixed" style="margin-left:auto;display:flex;align-items:center;gap:7px">
+      <button onclick="clearFilters()" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 10px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--accent);color:var(--on-accent);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;font-weight:600" onmouseover="this.style.background='#1D4ED8';this.style.borderColor='#1D4ED8'" onmouseout="this.style.background='var(--accent)';this.style.borderColor='var(--accent)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Reset Filters</button>
+      <button id="pdfBtn" onclick="exportPDF()" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 11px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--accent);color:var(--on-accent);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;font-weight:600" onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='var(--accent)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/><polyline points="8,7 12,3 16,7"/><line x1="12" y1="3" x2="12" y2="14"/></svg>
+        Export
+      </button>
+    </div>
   </div>
-  <div class="tb-sep"></div>
-  <div class="status-dot" id="statusDot"></div>
-  <span id="connLabel">Demo data</span>
-  <div class="tb-sep"></div>
-  <button id="pdfBtn" onclick="exportPDF()" style="font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 11px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--accent);color:var(--on-accent);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;font-weight:600" onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='var(--accent)'">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/><polyline points="8,7 12,3 16,7"/><line x1="12" y1="3" x2="12" y2="14"/></svg>
-    Export
-  </button>
 </div>
 
 <div id="ganttWrap">
@@ -1332,7 +1349,7 @@ window.addEventListener('message',e=>{
       if(Array.isArray(msg.tasks)&&msg.tasks.length){
         tasks=msg.tasks;isConnected=true;
         document.getElementById('statusDot').classList.add('connected');
-        document.getElementById('connLabel').textContent='Dataverse ('+tasks.filter(t=>!t.group).length+' tasks)';
+        document.getElementById('connLabel').textContent='Dataverse ('+tasks.filter(t=>!t.group).length+' records)';
         populateDropdowns();render();
       }break;
     case'SET_FILTER':
@@ -1632,7 +1649,7 @@ function loadFromHash(){
     tasks=[...groupRows,...parsed];
     isConnected=true;
     document.getElementById('statusDot').classList.add('connected');
-    document.getElementById('connLabel').textContent='Dataverse ('+parsed.length+' tasks)';
+    document.getElementById('connLabel').textContent='Dataverse ('+parsed.length+' records)';
     populateDropdowns();render();
     return true;
   }catch(e){console.error('Hash load error:',e);return false;}
@@ -1652,7 +1669,7 @@ function loadDemoData(){
     return{id:gk,road:gk,group:true,groupKey:gk,start:minStart.toISOString().split('T')[0],end:maxEnd.toISOString().split('T')[0],progress:avgProg,pm:gk,status:'open'};
   });
   tasks=[...groupRows,...DEMO.filter(t=>!t.group)];
-  document.getElementById('connLabel').textContent='Demo data ('+DEMO.filter(t=>!t.group).length+' tasks)';
+  document.getElementById('connLabel').textContent='Demo data ('+DEMO.filter(t=>!t.group).length+' records)';
   populateDropdowns();render();
 }
 
@@ -1717,7 +1734,7 @@ function loadFromHash(){
     tasks=[...groupRows,...parsed];
     isConnected=true;
     document.getElementById('statusDot').classList.add('connected');
-    document.getElementById('connLabel').textContent='Dataverse ('+parsed.length+' tasks)';
+    document.getElementById('connLabel').textContent='Dataverse ('+parsed.length+' records)';
     populateDropdowns();render();
     return true;
   }catch(e){console.error('Hash load error:',e);return false;}
@@ -1737,7 +1754,7 @@ function loadDemoData(){
     return{id:gk,road:gk,group:true,groupKey:gk,start:minStart.toISOString().split('T')[0],end:maxEnd.toISOString().split('T')[0],progress:avgProg,pm:gk,status:'open'};
   });
   tasks=[...groupRows,...DEMO.filter(t=>!t.group)];
-  document.getElementById('connLabel').textContent='Demo data ('+DEMO.filter(t=>!t.group).length+' tasks)';
+  document.getElementById('connLabel').textContent='Demo data ('+DEMO.filter(t=>!t.group).length+' records)';
   populateDropdowns();render();
 }
 
@@ -1752,3 +1769,4 @@ window.addEventListener('hashchange',loadFromHash);
 
 </body>
 </html>
+                                                                                     
