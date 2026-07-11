@@ -141,11 +141,13 @@ td.w-road{text-align:left!important}
 /* inline editable cells */
 .cell-edit{width:100%;height:100%;box-sizing:border-box;font-family:inherit;font-size:var(--fs-control);border:none;outline:none;background:transparent;cursor:text;padding:0;color:inherit}
 .cell-edit:focus{background:var(--bg);border:1.5px solid #6b3fa0;border-radius:3px;padding:0 4px;cursor:text}
+.cell-edit::placeholder{color:var(--gray-400);opacity:1}
 .cell-edit[type=date]{font-size:var(--fs-label);width:100%;cursor:pointer}
 .cell-edit[type=date]::-webkit-calendar-picker-indicator{opacity:0.6;cursor:pointer;margin-left:0;padding:0}
 .cell-edit[type=number]{font-size:var(--fs-control)}
 td.editable{padding:2px 4px;overflow:visible}
 td.editable:hover{background:var(--tint-purple) !important}
+body.dark td.editable:hover{background:var(--row-hover) !important}
 
 /* progress */
 .prog-cell{display:flex;align-items:center;gap:5px}
