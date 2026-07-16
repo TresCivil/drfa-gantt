@@ -60,8 +60,10 @@ body.dark ::-webkit-scrollbar-corner{background:var(--bg)}
 .seg button:hover:not(.active){background:var(--gray-100)}
 .tb-sep{width:1px;height:20px;background:var(--border-md);margin:0 1px;flex:0 0 auto}
 .tb-label{font-size:var(--fs-label);color:var(--gray-400);white-space:nowrap;flex:0 0 auto}
-select,input[type=search]{font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:var(--bg);color:var(--gray-800);outline:none;min-width:0}
+select,input[type=search],input[type=date]{font-family:inherit;font-size:var(--fs-control);height:26px;padding:0 7px;border:1px solid var(--border-md);border-radius:var(--radius);background:var(--bg);color:var(--gray-800);outline:none;min-width:0}
 select:focus,input:focus{border-color:var(--accent)}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1)}
+body:not(.dark) input[type=date]::-webkit-calendar-picker-indicator{filter:none}
 .status-dot{width:7px;height:7px;border-radius:50%;background:var(--gray-200);flex-shrink:0}
 .status-dot.connected{background:#3B82F6}
 #connLabel{font-size:var(--fs-label);color:var(--gray-400)}
